@@ -12,13 +12,13 @@ class TrafficSegment:
     to_street: str | None
     length: float | None
     street_heading: str | None
+    comments: str | None
     start_lon: float | None
     start_lat: float | None
     end_lon: float | None
     end_lat: float | None
     current_speed: float | None
     last_updated: str | None
-    comments: str | None
 
 
 class TrafficAPIError(Exception):

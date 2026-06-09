@@ -1,3 +1,5 @@
+from typing import Any
+
 from httpx import Client
 
 from chicago_traffic.models import TrafficSegment
@@ -25,24 +27,41 @@ class TrafficClient:
         # parse response into list of TrafficSegment objects
 
         # turn raw response into structured JSON
-        json_response = response.json()
+        json_response: list[dict[str, str]] = response.json()
 
         # for each item in the JSON response, create a TrafficSegment object and add it to the list of segments
         segments = []
         for item in json_response:
-            segment_id: int = item["segment_id"]
+            segment_id: int = int(item["segment_id"])
             street: str = item["street"]
             direction: str = item["_direction"]
             from_street: str = item["_fromst"]
-            to_street: str = item["tost"]
-            length: float = item["_length"]
+            to_street: str = item["_tost"]
+            length: float = float(item["_length"])
             street_heading: str = item["_strheading"]
-            start_lon: float = item["_comments"]
-            start_lat: float = item["start_lon"]
-            end_lon: float = item["_lif_lat"]
-            end_lat: float = item["_lif_lon"]
-            current_speed: float = item["_lit_lat"]
-            last_updated: str = item["_traffic"]
-            comments: str = item["_last_updt"]
+            comments: str = item["_comments"]
+            start_lon: float = float(item["start_lon"])
+            start_lat: float = float(item["_lif_lat"])
+            end_lon: float = float(item["_lif_lon"])
+            end_lat: float = float(item["_lit_lat"])
+            current_speed: float = float(item["_traffic"])
+            last_updated: str = item["_last_updt"]
+
+            segment = TrafficSegment(
+                segment_id,
+                street,
+                direction,
+                from_street,
+                to_street,
+                length,
+                street_heading,
+                comments,
+                start_lon,
+                start_lat,
+                end_lon,
+                end_lat,
+                current_speed,
+                last_updated,
+            )
 
         return list()
