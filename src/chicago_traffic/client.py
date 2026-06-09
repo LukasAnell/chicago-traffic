@@ -1,4 +1,5 @@
 from datetime import datetime
+from types import TracebackType
 from typing import cast
 
 from httpx import Client, HTTPError
@@ -20,6 +21,18 @@ class TrafficClient:
         # if user supplied a token, use it in future HTTP requests
         if self.app_token is not None:
             self.client.headers["X-App-Token"] = self.app_token
+
+    def __enter__(self):
+        _ = self.client.__enter__()
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type | None,
+        exc_value: Exception | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        _ = self.client.__exit__(exc_type, exc_value, traceback)
 
     def get_live_speeds(self) -> list[TrafficSegment]:
         try:
