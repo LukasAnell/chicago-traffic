@@ -1,8 +1,8 @@
 from typing import cast
 
-from httpx import Client
+from httpx import Client, HTTPError
 
-from chicago_traffic.models import TrafficSegment
+from chicago_traffic.models import TrafficAPIError, TrafficSegment
 
 
 class TrafficClient:
@@ -21,50 +21,56 @@ class TrafficClient:
             self.client.headers["X-App-Token"] = self.app_token
 
     def get_live_speeds(self) -> list[TrafficSegment]:
-        # get response from API at base_url
-        response = self.client.get(self.dataset_id)
+        try:
+            # get response from API at base_url
+            response = self.client.get(self.dataset_id)
+        except HTTPError as e:
+            raise TrafficAPIError("Failed to fetch data from Traffic API", cause=e)
 
         # turn raw response into structured JSON
         json_response: list[dict[str, str]] = cast(
             list[dict[str, str]], response.json()
         )
 
-        # for each item in the JSON response, create a TrafficSegment object and add it to the list of segments
-        segments: list[TrafficSegment] = []
-        for item in json_response:
-            segment_id: int = int(item["segment_id"])
-            street: str = item["street"]
-            direction: str = item["_direction"]
-            from_street: str = item["_fromst"]
-            to_street: str = item["_tost"]
-            length: float = float(item["_length"])
-            street_heading: str = item["_strheading"]
-            comments: str = item["_comments"]
-            start_lon: float = float(item["start_lon"])
-            start_lat: float = float(item["_lif_lat"])
-            end_lon: float = float(item["_lif_lon"])
-            end_lat: float = float(item["_lit_lat"])
-            current_speed: float = float(item["_traffic"])
-            last_updated: str = item["_last_updt"]
+        try:
+            # for each item in the JSON response, create a TrafficSegment object and add it to the list of segments
+            segments: list[TrafficSegment] = []
+            for item in json_response:
+                segment_id: int = int(item["segment_id"])
+                street: str = item["street"]
+                direction: str = item["_direction"]
+                from_street: str = item["_fromst"]
+                to_street: str = item["_tost"]
+                length: float = float(item["_length"])
+                street_heading: str = item["_strheading"]
+                comments: str = item["_comments"]
+                start_lon: float = float(item["start_lon"])
+                start_lat: float = float(item["_lif_lat"])
+                end_lon: float = float(item["_lif_lon"])
+                end_lat: float = float(item["_lit_lat"])
+                current_speed: float = float(item["_traffic"])
+                last_updated: str = item["_last_updt"]
 
-            segment: TrafficSegment = TrafficSegment(
-                segment_id,
-                street,
-                direction,
-                from_street,
-                to_street,
-                length,
-                street_heading,
-                comments,
-                start_lon,
-                start_lat,
-                end_lon,
-                end_lat,
-                current_speed,
-                last_updated,
-            )
+                segment: TrafficSegment = TrafficSegment(
+                    segment_id,
+                    street,
+                    direction,
+                    from_street,
+                    to_street,
+                    length,
+                    street_heading,
+                    comments,
+                    start_lon,
+                    start_lat,
+                    end_lon,
+                    end_lat,
+                    current_speed,
+                    last_updated,
+                )
 
-            segments.append(segment)
+                segments.append(segment)
+        except (KeyError, ValueError) as e:
+            raise TrafficAPIError("Failed to parse Traffic API response", cause=e)
 
         # return list of TrafficSegment objects
         return segments
