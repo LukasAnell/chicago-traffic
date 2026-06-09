@@ -1,4 +1,4 @@
-from typing import Any
+from typing import cast
 
 from httpx import Client
 
@@ -24,13 +24,13 @@ class TrafficClient:
         # get response from API at base_url
         response = self.client.get(self.dataset_id)
 
-        # parse response into list of TrafficSegment objects
-
         # turn raw response into structured JSON
-        json_response: list[dict[str, str]] = response.json()
+        json_response: list[dict[str, str]] = cast(
+            list[dict[str, str]], response.json()
+        )
 
         # for each item in the JSON response, create a TrafficSegment object and add it to the list of segments
-        segments = []
+        segments: list[TrafficSegment] = []
         for item in json_response:
             segment_id: int = int(item["segment_id"])
             street: str = item["street"]
@@ -47,7 +47,7 @@ class TrafficClient:
             current_speed: float = float(item["_traffic"])
             last_updated: str = item["_last_updt"]
 
-            segment = TrafficSegment(
+            segment: TrafficSegment = TrafficSegment(
                 segment_id,
                 street,
                 direction,
@@ -64,4 +64,7 @@ class TrafficClient:
                 last_updated,
             )
 
-        return list()
+            segments.append(segment)
+
+        # return list of TrafficSegment objects
+        return segments
