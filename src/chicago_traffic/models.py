@@ -13,11 +13,11 @@ class TrafficSegment:
     length: str | None
     street_heading: str | None
     comments: str | None
-    start_lon: float | None
-    start_lat: float | None
-    end_lon: float | None
-    end_lat: float | None
-    current_speed: float | None
+    start_lon: str | None
+    start_lat: str | None
+    end_lon: str | None
+    end_lat: str | None
+    current_speed: str | None
     last_updated: str | None
 
     def __init__(
@@ -30,11 +30,11 @@ class TrafficSegment:
         length: str | None,
         street_heading: str | None,
         comments: str | None,
-        start_lon: float | None,
-        start_lat: float | None,
-        end_lon: float | None,
-        end_lat: float | None,
-        current_speed: float | None,
+        start_lon: str | None,
+        start_lat: str | None,
+        end_lon: str | None,
+        end_lat: str | None,
+        current_speed: str | None,
         last_updated: str | None,
     ):
         self.segment_id = segment_id
