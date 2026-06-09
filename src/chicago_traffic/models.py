@@ -18,40 +18,8 @@ class TrafficSegment:
     end_lon: float | None
     end_lat: float | None
     current_speed: float | None
-    last_updated: datetime | None
+    last_updated: str | None
     comments: str | None
-
-    def __init__(
-        self,
-        segment_id: int | None,
-        street: str | None,
-        direction: str | None,
-        from_street: str | None,
-        to_street: str | None,
-        length: float | None,
-        street_heading: str | None,
-        start_lon: float | None,
-        start_lat: float | None,
-        end_lon: float | None,
-        end_lat: float | None,
-        current_speed: float | None,
-        last_updated: datetime | None,
-        comments: str | None,
-    ):
-        self.segment_id = segment_id
-        self.street = street
-        self.direction = direction
-        self.from_street = from_street
-        self.to_street = to_street
-        self.length = length
-        self.street_heading = street_heading
-        self.start_lon = start_lon
-        self.start_lat = start_lat
-        self.end_lon = end_lon
-        self.end_lat = end_lat
-        self.current_speed = current_speed
-        self.last_updated = last_updated
-        self.comments = comments
 
 
 class TrafficAPIError(Exception):
