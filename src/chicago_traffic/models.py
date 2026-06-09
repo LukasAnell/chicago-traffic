@@ -1,24 +1,25 @@
 from dataclasses import dataclass
+from datetime import datetime
 
 
 @dataclass
 class TrafficSegment:
     """Represents a traffic segment in the Chicago traffic dataset."""
 
-    segment_id: int | None
-    street: str | None
-    direction: str | None
-    from_street: str | None
-    to_street: str | None
-    length: float | None
-    street_heading: str | None
+    segment_id: int
+    street: str
+    direction: str
+    from_street: str
+    to_street: str
+    length: float
+    street_heading: str
     comments: str | None
-    start_lon: float | None
-    start_lat: float | None
-    end_lon: float | None
-    end_lat: float | None
-    current_speed: float | None
-    last_updated: str | None
+    start_lon: float
+    start_lat: float
+    end_lon: float
+    end_lat: float
+    current_speed: float
+    last_updated: datetime
 
 
 class TrafficAPIError(Exception):

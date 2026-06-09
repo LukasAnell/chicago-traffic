@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import cast
 
 from httpx import Client, HTTPError
@@ -24,6 +25,7 @@ class TrafficClient:
         try:
             # get response from API at base_url
             response = self.client.get(self.dataset_id)
+            _ = response.raise_for_status()
         except HTTPError as e:
             raise TrafficAPIError("Failed to fetch data from Traffic API", cause=e)
 
@@ -43,13 +45,15 @@ class TrafficClient:
                 to_street: str = item["_tost"]
                 length: float = float(item["_length"])
                 street_heading: str = item["_strheading"]
-                comments: str = item["_comments"]
+                comments: str | None = item.get("_comments")
                 start_lon: float = float(item["start_lon"])
                 start_lat: float = float(item["_lif_lat"])
-                end_lon: float = float(item["_lif_lon"])
+                end_lon: float = float(item["_lit_lon"])
                 end_lat: float = float(item["_lit_lat"])
                 current_speed: float = float(item["_traffic"])
-                last_updated: str = item["_last_updt"]
+                last_updated: datetime = datetime.strptime(
+                    item["_last_updt"], "%Y-%m-%d %H:%M:%S.%f"
+                )
 
                 segment: TrafficSegment = TrafficSegment(
                     segment_id,
