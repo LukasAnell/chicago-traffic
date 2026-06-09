@@ -56,5 +56,9 @@ class TrafficSegment:
 class TrafficAPIError(Exception):
     """Custom exception for errors related to the Traffic API."""
 
-    def __init__(self, message: str):
+    cause: Exception | None
+
+    def __init__(self, message: str, cause: Exception | None = None):
         super().__init__(message)
+
+        self.cause = cause
