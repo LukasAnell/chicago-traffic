@@ -1,6 +1,6 @@
 from datetime import datetime
 from types import TracebackType
-from typing import Callable, TypeVar, cast
+from typing import Callable, cast
 
 from httpx import Client, HTTPError
 
@@ -102,9 +102,7 @@ class TrafficClient:
         # return list of TrafficSegment objects
         return segments
 
-    T = TypeVar("T")
-
-    def _get_required(
+    def _get_required[T](
         self, data: dict[str, str | None], key: str, convert: Callable[[str], T]
     ) -> T:
         value = data.get(key)
