@@ -79,60 +79,53 @@ class TrafficClient:
         except HTTPError as e:
             raise TrafficAPIError("Failed to fetch data from Traffic API", cause=e)
 
-        try:
-            # for each item in the JSON response, create a TrafficSegment object and add it to the list of segments
-            segments: list[TrafficSegment] = []
-            for item in json_response:
-                try:
-                    segment_id: int = self._get_required(item, "segmentid", int)
-                    street: str = self._get_required(item, "street", str)
-                    direction: str = self._get_required(item, "_direction", str)
-                    from_street: str = self._get_required(item, "_fromst", str)
-                    to_street: str = self._get_required(item, "_tost", str)
-                    length: float = self._get_required(item, "_length", float)
-                    street_heading: str = self._get_required(item, "_strheading", str)
-                    comments: str | None = item.get("_comments")
-                    start_lon: float = self._get_required(item, "start_lon", float)
-                    start_lat: float = self._get_required(item, "_lif_lat", float)
-                    end_lon: float = self._get_required(item, "_lit_lon", float)
-                    end_lat: float = self._get_required(item, "_lit_lat", float)
-                    current_speed: float = self._get_required(item, "_traffic", float)
-                    last_updated: datetime = self._get_required(
-                        item,
-                        "_last_updt",
-                        lambda s: datetime.strptime(s, "%Y-%m-%d %H:%M:%S.%f"),
-                    )
+        # for each item in the JSON response, create a TrafficSegment object and add it to the list of segments
+        segments: list[TrafficSegment] = []
+        for item in json_response:
+            try:
+                segment_id: int = self._get_required(item, "segmentid", int)
+                street: str = self._get_required(item, "street", str)
+                direction: str = self._get_required(item, "_direction", str)
+                from_street: str = self._get_required(item, "_fromst", str)
+                to_street: str = self._get_required(item, "_tost", str)
+                length: float = self._get_required(item, "_length", float)
+                street_heading: str = self._get_required(item, "_strheading", str)
+                comments: str | None = item.get("_comments")
+                start_lon: float = self._get_required(item, "start_lon", float)
+                start_lat: float = self._get_required(item, "_lif_lat", float)
+                end_lon: float = self._get_required(item, "_lit_lon", float)
+                end_lat: float = self._get_required(item, "_lit_lat", float)
+                current_speed: float = self._get_required(item, "_traffic", float)
+                last_updated: datetime = self._get_required(
+                    item,
+                    "_last_updt",
+                    lambda s: datetime.strptime(s, "%Y-%m-%d %H:%M:%S.%f"),
+                )
 
-                    has_data: bool = current_speed != -1
+                segment: TrafficSegment = TrafficSegment(
+                    segment_id,
+                    street,
+                    direction,
+                    from_street,
+                    to_street,
+                    length,
+                    street_heading,
+                    comments,
+                    start_lon,
+                    start_lat,
+                    end_lon,
+                    end_lat,
+                    current_speed,
+                    last_updated,
+                )
 
-                    segment: TrafficSegment = TrafficSegment(
-                        segment_id,
-                        street,
-                        direction,
-                        from_street,
-                        to_street,
-                        length,
-                        street_heading,
-                        comments,
-                        start_lon,
-                        start_lat,
-                        end_lon,
-                        end_lat,
-                        current_speed,
-                        last_updated,
-                        has_data,
-                    )
-
-                    segments.append(segment)
-                except TrafficAPIError as e:
-                    warnings.warn(
-                        f"Skipping segment due to error: {e}",
-                        category=RuntimeWarning,
-                    )
-                    continue
-
-        except TrafficAPIError:
-            raise
+                segments.append(segment)
+            except TrafficAPIError as e:
+                warnings.warn(
+                    f"Skipping segment due to error: {e}",
+                    category=RuntimeWarning,
+                )
+                continue
 
         # return list of TrafficSegment objects
         return segments

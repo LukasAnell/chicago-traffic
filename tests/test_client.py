@@ -146,7 +146,7 @@ def test_http_error_mid_pagination():
 
 
 # Malformed row on page 2
-def test_malformed_row_raises():
+def test_malformed_row_skipped_with_warning():
     with respx.mock:
         _ = respx.get("https://data.cityofchicago.org/resource/n4j6-wkkf.json").mock(
             side_effect=[
