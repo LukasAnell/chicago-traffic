@@ -34,6 +34,9 @@ class TrafficClient:
     ) -> None:
         _ = self.client.__exit__(exc_type, exc_value, traceback)
 
+    def close(self) -> None:
+        self.client.close()
+
     def get_live_speeds(self) -> list[TrafficSegment]:
         try:
             # get response from API at base_url
