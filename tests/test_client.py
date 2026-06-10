@@ -105,8 +105,8 @@ def test_empty_dataset():
             assert segments == []
 
 
-# HTTP error mid-pagination
-def test_http_error_raises():
+# HTTP error on first page
+def test_http_error_first_page():
     with respx.mock:
         _ = respx.get("https://data.cityofchicago.org/resource/n4j6-wkkf.json").mock(
             side_effect=[
@@ -122,8 +122,28 @@ def test_http_error_raises():
                 _ = client.get_live_speeds()
 
 
+# HTTP error mid-pagination
+def test_http_error_mid_pagination():
+    with respx.mock:
+        _ = respx.get("https://data.cityofchicago.org/resource/n4j6-wkkf.json").mock(
+            side_effect=[
+                Response(
+                    200,
+                    json=[make_segment(i) for i in range(1000)],
+                ),
+                Response(
+                    500,
+                ),
+            ]
+        )
+
+        with TrafficClient() as client:
+            with pytest.raises(TrafficAPIError):
+                _ = client.get_live_speeds()
+
+
 # Malformed row on page 2
-def test_malfomed_row_raises():
+def test_malformed_row_raises():
     with respx.mock:
         _ = respx.get("https://data.cityofchicago.org/resource/n4j6-wkkf.json").mock(
             side_effect=[
@@ -164,6 +184,8 @@ def test_correct_offset():
 
             request: Request = cast(Request, respx.calls[0].request)
             assert request.url.params["$offset"] == "0"
+            assert request.url.params["$limit"] == "1000"
 
             request = cast(Request, respx.calls[1].request)
             assert request.url.params["$offset"] == "1000"
+            assert request.url.params["$limit"] == "1000"
