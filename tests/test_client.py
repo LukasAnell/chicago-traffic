@@ -11,9 +11,9 @@ from chicago_traffic.models import TrafficAPIError
 def make_segment(segment_id: int = 1) -> dict[str, str | None]:
     """Helper function to create a mock traffic segment with default values."""
     return {
-        "segment_id": str(segment_id),
+        "segmentid": str(segment_id),
         "street": "Cermak",
-        "direction": "EB",
+        "_direction": "EB",
         "_fromst": "California",
         "_tost": "Western",
         "_length": str(0.5),

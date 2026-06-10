@@ -84,9 +84,9 @@ class TrafficClient:
             segments: list[TrafficSegment] = []
             for item in json_response:
                 try:
-                    segment_id: int = self._get_required(item, "segment_id", int)
+                    segment_id: int = self._get_required(item, "segmentid", int)
                     street: str = self._get_required(item, "street", str)
-                    direction: str = self._get_required(item, "direction", str)
+                    direction: str = self._get_required(item, "_direction", str)
                     from_street: str = self._get_required(item, "_fromst", str)
                     to_street: str = self._get_required(item, "_tost", str)
                     length: float = self._get_required(item, "_length", float)
