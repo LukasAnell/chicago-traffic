@@ -120,8 +120,8 @@ class TrafficClient:
 
                 segments.append(segment)
 
-        except (KeyError, ValueError, TypeError) as e:
-            raise TrafficAPIError("Failed to parse Traffic API response", cause=e)
+        except TrafficAPIError:
+            raise
 
         # return list of TrafficSegment objects
         return segments
