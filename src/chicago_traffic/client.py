@@ -2,7 +2,7 @@ from datetime import datetime
 from types import TracebackType
 from typing import Callable, cast
 
-from httpx import Client, HTTPError
+from httpx import Client, HTTPError, Response
 
 from chicago_traffic.models import TrafficAPIError, TrafficSegment
 
@@ -10,6 +10,9 @@ from chicago_traffic.models import TrafficAPIError, TrafficSegment
 class TrafficClient:
     base_url: str = "https://data.cityofchicago.org/resource"
     dataset_id: str = "/n4j6-wkkf.json"
+
+    # Socrata's max page size for requests
+    page_size: int = 1_000
 
     app_token: str | None
     client: Client
@@ -38,24 +41,42 @@ class TrafficClient:
         self.client.close()
 
     def get_live_speeds(self) -> list[TrafficSegment]:
+        # Declare empty json_response list to append each page of the response to
+        json_response: list[dict[str, str | None]] = []
+
         try:
-            # get response from API at base_url
-            response = self.client.get(self.dataset_id)
-            _ = response.raise_for_status()
+            offset: int = 0
+            while True:
+                response: Response = self.client.get(
+                    self.dataset_id,
+                    params={"$limit": self.page_size, "$offset": offset},
+                )
+                _ = response.raise_for_status()
+
+                # pyright complains about raw being of type Any, so I'm just casting to an object to suppress the warning.
+                # There is no behavior change
+                raw: object = cast(object, response.json())
+
+                if not isinstance(raw, list):
+                    raise TrafficAPIError("Unexpected Traffic API response format")
+
+                # turn raw response into structured JSON
+                page_data: list[dict[str, str | None]] = cast(
+                    list[dict[str, str | None]], raw
+                )
+
+                if not page_data:
+                    break
+
+                json_response.extend(page_data)
+
+                if len(page_data) < self.page_size:
+                    break
+
+                offset += self.page_size
+
         except HTTPError as e:
             raise TrafficAPIError("Failed to fetch data from Traffic API", cause=e)
-
-        # pyright complains about raw being of type Any, so I'm just casting to an object to suppress the warning.
-        # There is no behavior change
-        raw: object = cast(object, response.json())
-
-        # turn raw response into structured JSON
-        if not isinstance(raw, list):
-            raise TrafficAPIError("Unexpected Traffic API response format")
-
-        json_response: list[dict[str, str | None]] = cast(
-            list[dict[str, str | None]], raw
-        )
 
         try:
             # for each item in the JSON response, create a TrafficSegment object and add it to the list of segments
