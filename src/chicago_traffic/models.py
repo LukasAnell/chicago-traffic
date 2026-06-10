@@ -20,6 +20,7 @@ class TrafficSegment:
     end_lat: float
     current_speed: float
     last_updated: datetime
+    has_data: bool
 
 
 class TrafficAPIError(Exception):

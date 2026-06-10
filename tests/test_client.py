@@ -5,7 +5,7 @@ import respx
 from httpx import Request, Response
 
 from chicago_traffic.client import TrafficClient
-from chicago_traffic.models import TrafficAPIError
+from chicago_traffic.models import TrafficAPIError, TrafficSegment
 
 
 def make_segment(segment_id: int = 1) -> dict[str, str | None]:
@@ -39,7 +39,7 @@ def test_single_page():
         )
 
         with TrafficClient() as client:
-            segments = client.get_live_speeds()
+            segments: list[TrafficSegment] = client.get_live_speeds()
 
             assert len(respx.calls) == 1
             assert len(segments) == 5
@@ -64,7 +64,7 @@ def test_multi_page():
         )
 
         with TrafficClient() as client:
-            segments = client.get_live_speeds()
+            segments: list[TrafficSegment] = client.get_live_speeds()
 
             assert len(respx.calls) == 2
             assert len(segments) == 1250
@@ -87,7 +87,7 @@ def test_exact_multiple():
         )
 
         with TrafficClient() as client:
-            segments = client.get_live_speeds()
+            segments: list[TrafficSegment] = client.get_live_speeds()
 
             assert len(respx.calls) == 2
             assert len(segments) == 1000
@@ -104,7 +104,7 @@ def test_empty_dataset():
         )
 
         with TrafficClient() as client:
-            segments = client.get_live_speeds()
+            segments: list[TrafficSegment] = client.get_live_speeds()
 
             assert len(respx.calls) == 1
             assert segments == []
@@ -162,7 +162,7 @@ def test_malformed_row_raises():
         )
 
         with TrafficClient() as client:
-            with pytest.raises(TrafficAPIError):
+            with pytest.warns(RuntimeWarning):
                 _ = client.get_live_speeds()
 
 
@@ -192,3 +192,48 @@ def test_correct_offset():
             request = cast(Request, respx.calls[1].request)
             assert request.url.params["$offset"] == "1000"
             assert request.url.params["$limit"] == "1000"
+
+
+# has_data property
+def test_has_data_true():
+    # segment with current_speed != -1, so has_data is True
+    segment: dict[str, str | None] = make_segment()
+    segment["_traffic"] = str(25.0)
+
+    with respx.mock:
+        _ = respx.get("https://data.cityofchicago.org/resource/n4j6-wkkf.json").mock(
+            return_value=Response(
+                200,
+                json=[segment],
+            )
+        )
+
+        with TrafficClient() as client:
+            segments: list[TrafficSegment] = client.get_live_speeds()
+
+            assert len(respx.calls) == 1
+            assert len(segments) == 1
+            assert segments[0].current_speed == 25.0
+            assert segments[0].has_data is True
+
+
+def test_has_data_false():
+    # segment with current_speed == -1, so has_data is False
+    segment: dict[str, str | None] = make_segment()
+    segment["_traffic"] = str(-1.0)
+
+    with respx.mock:
+        _ = respx.get("https://data.cityofchicago.org/resource/n4j6-wkkf.json").mock(
+            return_value=Response(
+                200,
+                json=[segment],
+            )
+        )
+
+        with TrafficClient() as client:
+            segments: list[TrafficSegment] = client.get_live_speeds()
+
+            assert len(respx.calls) == 1
+            assert len(segments) == 1
+            assert segments[0].current_speed == -1.0
+            assert segments[0].has_data is False

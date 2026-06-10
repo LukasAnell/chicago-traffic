@@ -103,6 +103,8 @@ class TrafficClient:
                         lambda s: datetime.strptime(s, "%Y-%m-%d %H:%M:%S.%f"),
                     )
 
+                    has_data: bool = current_speed != -1
+
                     segment: TrafficSegment = TrafficSegment(
                         segment_id,
                         street,
@@ -118,6 +120,7 @@ class TrafficClient:
                         end_lat,
                         current_speed,
                         last_updated,
+                        has_data,
                     )
 
                     segments.append(segment)
