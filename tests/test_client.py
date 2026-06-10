@@ -41,6 +41,7 @@ def test_single_page():
         with TrafficClient() as client:
             segments = client.get_live_speeds()
 
+            assert len(respx.calls) == 1
             assert len(segments) == 5
 
 
