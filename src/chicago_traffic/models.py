@@ -21,6 +21,10 @@ class TrafficSegment:
     current_speed: float
     last_updated: datetime
 
+    @property
+    def has_data(self) -> bool:
+        return self.current_speed != -1
+
 
 class TrafficAPIError(Exception):
     """Custom exception for errors related to the Traffic API."""
