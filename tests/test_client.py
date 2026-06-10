@@ -1,6 +1,8 @@
-import httpx
+from typing import cast
+
 import pytest
 import respx
+from httpx import Request, Response
 
 from chicago_traffic.client import TrafficClient
 from chicago_traffic.models import TrafficAPIError
@@ -30,7 +32,7 @@ def make_segment(segment_id: int = 1) -> dict[str, str | None]:
 def test_single_page():
     with respx.mock:
         _ = respx.get("https://data.cityofchicago.org/resource/n4j6-wkkf.json").mock(
-            return_value=httpx.Response(
+            return_value=Response(
                 200,
                 json=[make_segment(i) for i in range(1, 6)],
             )
@@ -38,6 +40,7 @@ def test_single_page():
 
         with TrafficClient() as client:
             segments = client.get_live_speeds()
+
             assert len(segments) == 5
 
 
@@ -46,11 +49,11 @@ def test_multi_page():
     with respx.mock:
         _ = respx.get("https://data.cityofchicago.org/resource/n4j6-wkkf.json").mock(
             side_effect=[
-                httpx.Response(
+                Response(
                     200,
                     json=[make_segment(i) for i in range(1000)],
                 ),
-                httpx.Response(
+                Response(
                     200,
                     json=[make_segment(i) for i in range(250)],
                 ),
@@ -59,6 +62,7 @@ def test_multi_page():
 
         with TrafficClient() as client:
             segments = client.get_live_speeds()
+
             assert len(segments) == 1250
 
 
@@ -67,11 +71,11 @@ def test_exact_multiple():
     with respx.mock:
         _ = respx.get("https://data.cityofchicago.org/resource/n4j6-wkkf.json").mock(
             side_effect=[
-                httpx.Response(
+                Response(
                     200,
                     json=[make_segment(i) for i in range(1000)],
                 ),
-                httpx.Response(
+                Response(
                     200,
                     json=[],
                 ),
@@ -80,6 +84,7 @@ def test_exact_multiple():
 
         with TrafficClient() as client:
             segments = client.get_live_speeds()
+
             assert len(segments) == 1000
 
 
@@ -87,7 +92,7 @@ def test_exact_multiple():
 def test_empty_dataset():
     with respx.mock:
         _ = respx.get("https://data.cityofchicago.org/resource/n4j6-wkkf.json").mock(
-            return_value=httpx.Response(
+            return_value=Response(
                 200,
                 json=[],
             )
@@ -95,6 +100,8 @@ def test_empty_dataset():
 
         with TrafficClient() as client:
             segments = client.get_live_speeds()
+
+            assert len(respx.calls) == 1
             assert segments == []
 
 
@@ -103,7 +110,7 @@ def test_http_error_raises():
     with respx.mock:
         _ = respx.get("https://data.cityofchicago.org/resource/n4j6-wkkf.json").mock(
             side_effect=[
-                httpx.Response(
+                Response(
                     500,
                 )
             ]
@@ -116,6 +123,47 @@ def test_http_error_raises():
 
 
 # Malformed row on page 2
+def test_malfomed_row_raises():
+    with respx.mock:
+        _ = respx.get("https://data.cityofchicago.org/resource/n4j6-wkkf.json").mock(
+            side_effect=[
+                Response(
+                    200,
+                    json=[make_segment(i) for i in range(1000)],
+                ),
+                Response(
+                    200,
+                    json=[{"malformed": "row"}],
+                ),
+            ]
+        )
+
+        with TrafficClient() as client:
+            with pytest.raises(TrafficAPIError):
+                _ = client.get_live_speeds()
 
 
 # Correct $offset values sent
+def test_correct_offset():
+    with respx.mock:
+        _ = respx.get("https://data.cityofchicago.org/resource/n4j6-wkkf.json").mock(
+            side_effect=[
+                Response(
+                    200,
+                    json=[make_segment(i) for i in range(1000)],
+                ),
+                Response(
+                    200,
+                    json=[make_segment(i) for i in range(250)],
+                ),
+            ]
+        )
+
+        with TrafficClient() as client:
+            _ = client.get_live_speeds()
+
+            request: Request = cast(Request, respx.calls[0].request)
+            assert request.url.params["$offset"] == "0"
+
+            request = cast(Request, respx.calls[1].request)
+            assert request.url.params["$offset"] == "1000"
