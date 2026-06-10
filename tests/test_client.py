@@ -43,6 +43,8 @@ def test_single_page():
 
             assert len(respx.calls) == 1
             assert len(segments) == 5
+            assert segments[0].street == "Cermak"
+            assert segments[0].current_speed == -1.0
 
 
 # Multi-page
@@ -64,6 +66,7 @@ def test_multi_page():
         with TrafficClient() as client:
             segments = client.get_live_speeds()
 
+            assert len(respx.calls) == 2
             assert len(segments) == 1250
 
 
@@ -86,6 +89,7 @@ def test_exact_multiple():
         with TrafficClient() as client:
             segments = client.get_live_speeds()
 
+            assert len(respx.calls) == 2
             assert len(segments) == 1000
 
 
@@ -110,11 +114,9 @@ def test_empty_dataset():
 def test_http_error_first_page():
     with respx.mock:
         _ = respx.get("https://data.cityofchicago.org/resource/n4j6-wkkf.json").mock(
-            side_effect=[
-                Response(
-                    500,
-                )
-            ]
+            return_value=Response(
+                500,
+            )
         )
 
         # uses pytest.raises to make sure that TrafficAPIError is raised when the request returns a 500 error
