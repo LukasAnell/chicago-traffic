@@ -1,7 +1,9 @@
 import httpx
+import pytest
 import respx
 
 from chicago_traffic.client import TrafficClient
+from chicago_traffic.models import TrafficAPIError
 
 
 def make_segment(segment_id: int = 1) -> dict[str, str | None]:
@@ -82,9 +84,35 @@ def test_exact_multiple():
 
 
 # Empty dataset
+def test_empty_dataset():
+    with respx.mock:
+        _ = respx.get("https://data.cityofchicago.org/resource/n4j6-wkkf.json").mock(
+            return_value=httpx.Response(
+                200,
+                json=[],
+            )
+        )
+
+        with TrafficClient() as client:
+            segments = client.get_live_speeds()
+            assert segments == []
 
 
 # HTTP error mid-pagination
+def test_http_error_raises():
+    with respx.mock:
+        _ = respx.get("https://data.cityofchicago.org/resource/n4j6-wkkf.json").mock(
+            side_effect=[
+                httpx.Response(
+                    500,
+                )
+            ]
+        )
+
+        # uses pytest.raises to make sure that TrafficAPIError is raised when the request returns a 500 error
+        with TrafficClient() as client:
+            with pytest.raises(TrafficAPIError):
+                _ = client.get_live_speeds()
 
 
 # Malformed row on page 2
