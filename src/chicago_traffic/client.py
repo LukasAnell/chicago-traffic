@@ -1,6 +1,6 @@
 from datetime import datetime
 from types import TracebackType
-from typing import cast
+from typing import Callable, TypeVar, cast
 
 from httpx import Client, HTTPError
 
@@ -42,30 +42,39 @@ class TrafficClient:
         except HTTPError as e:
             raise TrafficAPIError("Failed to fetch data from Traffic API", cause=e)
 
+        # pyright complains about raw being of type Any, so I'm just casting to an object to suppress the warning.
+        # There is no behavior change
+        raw: object = cast(object, response.json())
+
         # turn raw response into structured JSON
-        json_response: list[dict[str, str]] = cast(
-            list[dict[str, str]], response.json()
+        if not isinstance(raw, list):
+            raise TrafficAPIError("Unexpected Traffic API response format")
+
+        json_response: list[dict[str, str | None]] = cast(
+            list[dict[str, str | None]], raw
         )
 
         try:
             # for each item in the JSON response, create a TrafficSegment object and add it to the list of segments
             segments: list[TrafficSegment] = []
             for item in json_response:
-                segment_id: int = int(item["segment_id"])
-                street: str = item["street"]
-                direction: str = item["_direction"]
-                from_street: str = item["_fromst"]
-                to_street: str = item["_tost"]
-                length: float = float(item["_length"])
-                street_heading: str = item["_strheading"]
+                segment_id: int = self._get_required(item, "segment_id", int)
+                street: str = self._get_required(item, "street", str)
+                direction: str = self._get_required(item, "direction", str)
+                from_street: str = self._get_required(item, "_fromst", str)
+                to_street: str = self._get_required(item, "_tost", str)
+                length: float = self._get_required(item, "_length", float)
+                street_heading: str = self._get_required(item, "_strheading", str)
                 comments: str | None = item.get("_comments")
-                start_lon: float = float(item["start_lon"])
-                start_lat: float = float(item["_lif_lat"])
-                end_lon: float = float(item["_lit_lon"])
-                end_lat: float = float(item["_lit_lat"])
-                current_speed: float = float(item["_traffic"])
-                last_updated: datetime = datetime.strptime(
-                    item["_last_updt"], "%Y-%m-%d %H:%M:%S.%f"
+                start_lon: float = self._get_required(item, "start_lon", float)
+                start_lat: float = self._get_required(item, "_lif_lat", float)
+                end_lon: float = self._get_required(item, "_lit_lon", float)
+                end_lat: float = self._get_required(item, "_lit_lat", float)
+                current_speed: float = self._get_required(item, "_traffic", float)
+                last_updated: datetime = self._get_required(
+                    item,
+                    "_last_updt",
+                    lambda s: datetime.strptime(s, "%Y-%m-%d %H:%M:%S.%f"),
                 )
 
                 segment: TrafficSegment = TrafficSegment(
@@ -86,8 +95,28 @@ class TrafficClient:
                 )
 
                 segments.append(segment)
-        except (KeyError, ValueError) as e:
+
+        except (KeyError, ValueError, TypeError) as e:
             raise TrafficAPIError("Failed to parse Traffic API response", cause=e)
 
         # return list of TrafficSegment objects
         return segments
+
+    T = TypeVar("T")
+
+    def _get_required(
+        self, data: dict[str, str | None], key: str, convert: Callable[[str], T]
+    ) -> T:
+        value = data.get(key)
+
+        if value is None:
+            raise TrafficAPIError(
+                f"Missing required field '{key}' in Traffic API response"
+            )
+
+        try:
+            return convert(value)
+        except Exception as e:
+            raise TrafficAPIError(
+                f"Failed to convert field '{key}' to the correct type", cause=e
+            )
