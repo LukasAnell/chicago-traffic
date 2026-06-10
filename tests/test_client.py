@@ -40,6 +40,24 @@ def test_single_page():
 
 
 # Multi-page
+def test_multi_page():
+    with respx.mock:
+        _ = respx.get("https://data.cityofchicago.org/resource/n4j6-wkkf.json").mock(
+            side_effect=[
+                httpx.Response(
+                    200,
+                    json=[make_segment(i) for i in range(1000)],
+                ),
+                httpx.Response(
+                    200,
+                    json=[make_segment(i) for i in range(250)],
+                ),
+            ]
+        )
+
+        with TrafficClient() as client:
+            segments = client.get_live_speeds()
+            assert len(segments) == 1250
 
 
 # Exact multiple
