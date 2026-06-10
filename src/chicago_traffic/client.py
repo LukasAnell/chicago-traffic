@@ -130,6 +130,16 @@ class TrafficClient:
         # return list of TrafficSegment objects
         return segments
 
+    def get_historical_speeds(
+        self,
+        start: datetime,
+        end: datetime | None = None,
+        segment_ids: list[int] | None = None,
+    ) -> list[TrafficSegment]:
+        #
+
+        return []
+
     def _get_required[T](
         self, data: dict[str, str | None], key: str, convert: Callable[[str], T]
     ) -> T:
