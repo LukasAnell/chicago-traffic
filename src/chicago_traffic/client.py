@@ -136,7 +136,18 @@ class TrafficClient:
         end: datetime | None = None,
         segment_ids: list[int] | None = None,
     ) -> list[TrafficSegment]:
-        #
+        if end is None:
+            end = datetime.now()
+
+        if start >= end:
+            raise ValueError("Start datetime must be before end datetime")
+
+        # if no segment_ids is provided and the date range is more than 7 days, give the user a warning
+        if segment_ids is None and (end - start).days > 7:
+            warnings.warn(
+                "Fetching historical speeds for a date range longer than 7 days may result in a large number of API requests and slow performance. Consider providing specific segment IDs or a shorter date range.",
+                category=RuntimeWarning,
+            )
 
         return []
 
