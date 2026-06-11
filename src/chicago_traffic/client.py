@@ -9,20 +9,20 @@ from chicago_traffic.models import TrafficAPIError, TrafficSegment
 
 
 class TrafficClient:
-    base_url: str = "https://data.cityofchicago.org/resource"
-    live_dataset: str = "/n4j6-wkkf.json"
-    historical_2024_to_now: str = "/kf7e-cur8.json"
-    historical_2018_to_2023: str = "/sxs8-h27x.json"
+    __BASE_URL: str = "https://data.cityofchicago.org/resource"
+    __LIVE_DATASET: str = "/n4j6-wkkf.json"
+    __HISTORICAL_2024_TO_NOW: str = "/kf7e-cur8.json"
+    __HISTORICAL_2018_TO_2023: str = "/sxs8-h27x.json"
 
     # Socrata's max page size for requests
-    page_size: int = 1_000
+    __PAGE_SIZE: int = 1_000
 
     app_token: str | None
     client: Client
 
     def __init__(self, app_token: str | None = None):
         self.app_token = app_token
-        self.client = Client(base_url=self.base_url)
+        self.client = Client(base_url=self.__BASE_URL)
 
         # if user supplied a token, use it in future HTTP requests
         if self.app_token is not None:
@@ -51,8 +51,8 @@ class TrafficClient:
             offset: int = 0
             while True:
                 response: Response = self.client.get(
-                    self.live_dataset,
-                    params={"$limit": self.page_size, "$offset": offset},
+                    self.__LIVE_DATASET,
+                    params={"$limit": self.__PAGE_SIZE, "$offset": offset},
                 )
                 _ = response.raise_for_status()
 
@@ -73,10 +73,10 @@ class TrafficClient:
 
                 json_response.extend(page_data)
 
-                if len(page_data) < self.page_size:
+                if len(page_data) < self.__PAGE_SIZE:
                     break
 
-                offset += self.page_size
+                offset += self.__PAGE_SIZE
 
         except HTTPError as e:
             raise TrafficAPIError("Failed to fetch data from Traffic API", cause=e)
@@ -151,7 +151,7 @@ class TrafficClient:
                 category=RuntimeWarning,
             )
 
-        #
+        # historical datasets cover 2018-2023, and 2024-current
 
         return []
 
