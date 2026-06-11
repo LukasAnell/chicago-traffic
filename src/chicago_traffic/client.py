@@ -10,7 +10,9 @@ from chicago_traffic.models import TrafficAPIError, TrafficSegment
 
 class TrafficClient:
     base_url: str = "https://data.cityofchicago.org/resource"
-    dataset_id: str = "/n4j6-wkkf.json"
+    live_dataset: str = "/n4j6-wkkf.json"
+    historical_2024_to_now: str = "/kf7e-cur8.json"
+    historical_2018_to_2023: str = "/sxs8-h27x.json"
 
     # Socrata's max page size for requests
     page_size: int = 1_000
@@ -49,7 +51,7 @@ class TrafficClient:
             offset: int = 0
             while True:
                 response: Response = self.client.get(
-                    self.dataset_id,
+                    self.live_dataset,
                     params={"$limit": self.page_size, "$offset": offset},
                 )
                 _ = response.raise_for_status()
@@ -148,6 +150,8 @@ class TrafficClient:
                 "Fetching historical speeds for a date range longer than 7 days may result in a large number of API requests and slow performance. Consider providing specific segment IDs or a shorter date range.",
                 category=RuntimeWarning,
             )
+
+        #
 
         return []
 
