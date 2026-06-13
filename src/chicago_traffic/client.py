@@ -10,9 +10,14 @@ from chicago_traffic.models import TrafficAPIError, TrafficSegment
 
 class TrafficClient:
     __BASE_URL: str = "https://data.cityofchicago.org/resource"
+
+    # dataset identifiers in Socrata
     __LIVE_DATASET: str = "/n4j6-wkkf.json"
     __HISTORICAL_2024_TO_NOW: str = "/kf7e-cur8.json"
     __HISTORICAL_2018_TO_2023: str = "/sxs8-h27x.json"
+
+    # end date of 2018-2023, start date of 2024-now
+    __HISTORICAL_BOUNDARY = datetime(2024, 6, 11)
 
     # Socrata's max page size for requests
     __PAGE_SIZE: int = 1_000
@@ -152,6 +157,24 @@ class TrafficClient:
             )
 
         # historical datasets cover 2018-2023, and 2024-current
+        datasets: list[str]
+        if end < self.__HISTORICAL_BOUNDARY:
+            datasets = [self.__HISTORICAL_2018_TO_2023]
+        elif start >= self.__HISTORICAL_BOUNDARY:
+            datasets = [self.__HISTORICAL_2024_TO_NOW]
+        else:
+            datasets = [self.__HISTORICAL_2018_TO_2023, self.__HISTORICAL_2024_TO_NOW]
+
+        for dataset in datasets:
+            # fetch data for each dataset and combine results
+            try:
+                pass
+            except TrafficAPIError as e:
+                warnings.warn(
+                    f"Failed to fetch data from dataset {dataset}: {e}",
+                    category=RuntimeWarning,
+                )
+                continue
 
         return []
 
