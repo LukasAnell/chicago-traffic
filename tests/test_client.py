@@ -467,3 +467,42 @@ def test_historical_http_error_second_dataset_no_partial_results():
                     start=datetime(2024, 1, 1),
                     end=datetime(2024, 12, 1),
                 )
+
+
+# HTTP error mid-pagination within a single dataset
+def test_historical_http_error_mid_pagination():
+    with respx.mock:
+        _ = respx.get(HISTORICAL_2018_TO_2023_URL).mock(
+            side_effect=[
+                Response(200, json=[make_segment(i) for i in range(1000)]),
+                Response(500),
+            ]
+        )
+
+        with TrafficClient() as client:
+            with pytest.raises(TrafficAPIError):
+                _ = client.get_historical_speeds(
+                    start=datetime(2019, 1, 1),
+                    end=datetime(2019, 6, 1),
+                    segment_ids=[1],
+                )
+
+
+# Pagination within a single historical dataset
+def test_historical_pagination_within_one_dataset():
+    with respx.mock:
+        _ = respx.get(HISTORICAL_2018_TO_2023_URL).mock(
+            side_effect=[
+                Response(200, json=[make_segment(i) for i in range(1000)]),
+                Response(200, json=[make_segment(i) for i in range(250)]),
+            ]
+        )
+
+        with TrafficClient() as client:
+            segments: list[TrafficSegment] = client.get_historical_speeds(
+                start=datetime(2019, 1, 1),
+                end=datetime(2019, 6, 1),
+                segment_ids=[1],
+            )
+
+            assert len(segments) == 1250
