@@ -172,7 +172,7 @@ class TrafficClient:
 
         if segment_ids is not None:
             ids_list: str = ",".join(str(id) for id in segment_ids)
-            where += f" AND segmendid IN ({ids_list})"
+            where += f" AND segmentid IN ({ids_list})"
 
         json_response: list[dict[str, str | None]] = []
 
@@ -190,7 +190,7 @@ class TrafficClient:
                             "$where": where,
                         },
                     )
-                    _ = response.raise_for_status
+                    _ = response.raise_for_status()
 
                     raw: object = cast(object, response.json())
 
