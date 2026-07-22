@@ -65,7 +65,7 @@ class CrashRecord:
     traffic_control_device: str
     device_condition: str
     weather_condition: str
-    lightning_condition: str
+    lighting_condition: str
     first_crash_type: str
     trafficway_type: str
     alignment: str
@@ -74,12 +74,14 @@ class CrashRecord:
     damage: str
     prim_contributory_cause: str
     sec_contributory_cause: str
-    street_no: str
+    street_no: int
     street_direction: str
     street_name: str
-    beat_of_occurrence: str
+    beat_of_occurrence: int
     num_units: int
     crash_month: int
+    crash_hour: int
+    crash_day_of_week: int
     injuries: CrashInjuries
     location: CrashLocation | None
     crash_type: str | None
