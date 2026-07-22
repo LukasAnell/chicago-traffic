@@ -417,3 +417,24 @@ def test_historical_start_equal_end_raises_value_error():
             with pytest.raises(ValueError):
                 same = datetime(2019, 1, 1)
                 _ = client.get_historical_speeds(start=same, end=same)
+
+
+# end defaults to "now" when not specified
+def test_historical_end_defaults_to_now():
+    with respx.mock:
+        route = respx.get(HISTORICAL_2024_TO_NOW_URL).mock(
+            return_value=Response(200, json=[])
+        )
+
+        with TrafficClient() as client:
+            before = datetime.now()
+            _ = client.get_historical_speeds(start=datetime(2026, 1, 1))
+            after = datetime.now()
+
+            request: Request = cast(Request, route.calls[0].request)
+            where = request.url.params["$where"]
+
+            # extract the end bound and check it falls within [before, after]
+            end_str = where.split("<= '")[1].split("'")[0]
+            end_value = datetime.strptime(end_str, "%Y-%m-%dT%H:%M:%S")
+            assert before.replace(microsecond=0) <= end_value <= after
