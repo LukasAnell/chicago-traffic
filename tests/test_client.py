@@ -534,3 +534,21 @@ def test_historical_offset_resets_per_dataset():
             assert legacy_first.url.params["$offset"] == "0"
             assert legacy_second.url.params["$offset"] == "1000"
             assert current_first.url.params["$offset"] == "0"
+
+
+# Malformed row in historical data is skipped with a warning, same as get_live_speeds()
+def test_historical_malformed_row_skipped_with_warning():
+    with respx.mock:
+        _ = respx.get(HISTORICAL_2018_TO_2023_URL).mock(
+            return_value=Response(200, json=[{"malformed": "row"}])
+        )
+
+        with TrafficClient() as client:
+            with pytest.warns(RuntimeWarning):
+                segments: list[TrafficSegment] = client.get_historical_speeds(
+                    start=datetime(2019, 1, 1),
+                    end=datetime(2019, 1, 2),
+                    segment_ids=[1],
+                )
+
+            assert segments == []
