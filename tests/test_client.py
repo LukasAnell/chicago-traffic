@@ -1,3 +1,5 @@
+import warnings
+from datetime import datetime
 from typing import cast
 
 import pytest
@@ -6,6 +8,9 @@ from httpx import Request, Response
 
 from chicago_traffic.client import TrafficClient
 from chicago_traffic.models import TrafficAPIError, TrafficSegment
+
+HISTORICAL_2018_TO_2023_URL = "https://data.cityofchicago.org/resource/sxs8-h27x.json"
+HISTORICAL_2024_TO_NOW_URL = "https://data.cityofchicago.org/resource/kf7e-cur8.json"
 
 
 def make_segment(segment_id: int = 1) -> dict[str, str | None]:
@@ -237,3 +242,24 @@ def test_has_data_false():
             assert len(segments) == 1
             assert segments[0].current_speed == -1.0
             assert segments[0].has_data is False
+
+
+# Range is fully before the boundary so only the 2018-2023 dataset is queried
+def test_historical_routes_to_legacy_dataset_only():
+    with respx.mock:
+        legacy_route = respx.get(HISTORICAL_2018_TO_2023_URL).mock(
+            return_value=Response(200, json=[make_segment(i) for i in range(1, 4)])
+        )
+        current_route = respx.get(HISTORICAL_2024_TO_NOW_URL).mock(
+            return_value=Response(200, json=[])
+        )
+
+        with TrafficClient() as client:
+            segments: list[TrafficSegment] = client.get_historical_speeds(
+                start=datetime(2019, 1, 1),
+                end=datetime(2019, 1, 2),
+            )
+
+            assert legacy_route.called
+            assert not current_route.called
+            assert len(segments) == 3
