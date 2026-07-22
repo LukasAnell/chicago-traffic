@@ -9,18 +9,25 @@ from chicago_traffic.models import TrafficAPIError, TrafficSegment
 
 
 class TrafficClient:
-    base_url: str = "https://data.cityofchicago.org/resource"
-    dataset_id: str = "/n4j6-wkkf.json"
+    __BASE_URL: str = "https://data.cityofchicago.org/resource"
+
+    # dataset identifiers in Socrata
+    __LIVE_DATASET: str = "/n4j6-wkkf.json"
+    __HISTORICAL_2024_TO_NOW: str = "/4g9f-3jbs.json"
+    __HISTORICAL_2018_TO_2023: str = "/sxs8-h27x.json"
+
+    # end date of 2018-2023, start date of 2024-now
+    __HISTORICAL_BOUNDARY = datetime(2024, 6, 11)
 
     # Socrata's max page size for requests
-    page_size: int = 1_000
+    __PAGE_SIZE: int = 1_000
 
     app_token: str | None
     client: Client
 
     def __init__(self, app_token: str | None = None):
         self.app_token = app_token
-        self.client = Client(base_url=self.base_url)
+        self.client = Client(base_url=self.__BASE_URL)
 
         # if user supplied a token, use it in future HTTP requests
         if self.app_token is not None:
@@ -49,8 +56,8 @@ class TrafficClient:
             offset: int = 0
             while True:
                 response: Response = self.client.get(
-                    self.dataset_id,
-                    params={"$limit": self.page_size, "$offset": offset},
+                    self.__LIVE_DATASET,
+                    params={"$limit": self.__PAGE_SIZE, "$offset": offset},
                 )
                 _ = response.raise_for_status()
 
@@ -71,10 +78,10 @@ class TrafficClient:
 
                 json_response.extend(page_data)
 
-                if len(page_data) < self.page_size:
+                if len(page_data) < self.__PAGE_SIZE:
                     break
 
-                offset += self.page_size
+                offset += self.__PAGE_SIZE
 
         except HTTPError as e:
             raise TrafficAPIError("Failed to fetch data from Traffic API", cause=e)
@@ -128,6 +135,135 @@ class TrafficClient:
                 continue
 
         # return list of TrafficSegment objects
+        return segments
+
+    def get_historical_speeds(
+        self,
+        start: datetime,
+        end: datetime | None = None,
+        segment_ids: list[int] | None = None,
+    ) -> list[TrafficSegment]:
+        if end is None:
+            end = datetime.now()
+
+        if start >= end:
+            raise ValueError("Start datetime must be before end datetime")
+
+        # if no segment_ids is provided and the date range is more than 7 days, give the user a warning
+        if segment_ids is None and (end - start).days > 7:
+            warnings.warn(
+                "Fetching historical speeds for a date range longer than 7 days may result in a large number of API requests and slow performance. Consider providing specific segment IDs or a shorter date range.",
+                category=RuntimeWarning,
+            )
+
+        # historical datasets cover 2018-2023, and 2024-current
+        datasets: list[str]
+        if end < self.__HISTORICAL_BOUNDARY:
+            datasets = [self.__HISTORICAL_2018_TO_2023]
+        elif start >= self.__HISTORICAL_BOUNDARY:
+            datasets = [self.__HISTORICAL_2024_TO_NOW]
+        else:
+            datasets = [self.__HISTORICAL_2018_TO_2023, self.__HISTORICAL_2024_TO_NOW]
+
+        where: str = (
+            f"time >= '{start.strftime('%Y-%m-%dT%H:%M:%S')}'"
+            f" AND time <= '{end.strftime('%Y-%m-%dT%H:%M:%S')}'"
+        )
+
+        if segment_ids is not None:
+            ids_list: str = ",".join(str(id) for id in segment_ids)
+            where += f" AND segment_id IN ({ids_list})"
+
+        json_response: list[dict[str, str | None]] = []
+
+        for dataset in datasets:
+            # fetch data for each dataset and combine results
+            try:
+                offset: int = 0
+
+                while True:
+                    response: Response = self.client.get(
+                        dataset,
+                        params={
+                            "$limit": self.__PAGE_SIZE,
+                            "$offset": offset,
+                            "$where": where,
+                        },
+                    )
+                    _ = response.raise_for_status()
+
+                    raw: object = cast(object, response.json())
+
+                    if not isinstance(raw, list):
+                        raise TrafficAPIError("Unexpected Traffic API response format")
+
+                    page_data: list[dict[str, str | None]] = cast(
+                        list[dict[str, str | None]], raw
+                    )
+
+                    if not page_data:
+                        break
+
+                    json_response.extend(page_data)
+
+                    if len(page_data) < self.__PAGE_SIZE:
+                        break
+
+                    offset += self.__PAGE_SIZE
+            except HTTPError as e:
+                raise TrafficAPIError(
+                    f"Failed to fetch data from dataset {dataset}", cause=e
+                )
+
+        # both historical datasets use a different field naming convention than the live dataset
+        # (no underscore prefixes and no comments field)
+        segments: list[TrafficSegment] = []
+        for item in json_response:
+            try:
+                segment_id: int = self._get_required(item, "segment_id", int)
+                street: str = self._get_required(item, "street", str)
+                direction: str = self._get_required(item, "direction", str)
+                from_street: str = self._get_required(item, "from_street", str)
+                to_street: str = self._get_required(item, "to_street", str)
+                length: float = self._get_required(item, "length", float)
+                street_heading: str = self._get_required(item, "street_heading", str)
+                comments: str | None = item.get("comments")
+                start_lon: float = self._get_required(item, "start_longitude", float)
+                start_lat: float = self._get_required(item, "start_latitude", float)
+                end_lon: float = self._get_required(item, "end_longitude", float)
+                end_lat: float = self._get_required(item, "end_latitude", float)
+                current_speed: float = self._get_required(item, "speed", float)
+                last_updated: datetime = self._get_required(
+                    item,
+                    "time",
+                    lambda s: datetime.strptime(s, "%Y-%m-%dT%H:%M:%S.%f"),
+                )
+
+                segment: TrafficSegment = TrafficSegment(
+                    segment_id,
+                    street,
+                    direction,
+                    from_street,
+                    to_street,
+                    length,
+                    street_heading,
+                    comments,
+                    start_lon,
+                    start_lat,
+                    end_lon,
+                    end_lat,
+                    current_speed,
+                    last_updated,
+                )
+
+                segments.append(segment)
+            except TrafficAPIError as e:
+                warnings.warn(
+                    f"Skipping segment due to error: {e}",
+                    category=RuntimeWarning,
+                )
+                continue
+
         return segments
 
     def _get_required[T](
