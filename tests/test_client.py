@@ -10,11 +10,11 @@ from chicago_traffic.client import TrafficClient
 from chicago_traffic.models import TrafficAPIError, TrafficSegment
 
 HISTORICAL_2018_TO_2023_URL = "https://data.cityofchicago.org/resource/sxs8-h27x.json"
-HISTORICAL_2024_TO_NOW_URL = "https://data.cityofchicago.org/resource/kf7e-cur8.json"
+HISTORICAL_2024_TO_NOW_URL = "https://data.cityofchicago.org/resource/4g9f-3jbs.json"
 
 
 def make_segment(segment_id: int = 1) -> dict[str, str | None]:
-    """Helper function to create a mock traffic segment with default values."""
+    """Helper function to create a mock live-dataset traffic segment with default values."""
     return {
         "segmentid": str(segment_id),
         "street": "Cermak",
@@ -30,6 +30,25 @@ def make_segment(segment_id: int = 1) -> dict[str, str | None]:
         "_lit_lat": str(41.8519327365),
         "_traffic": str(-1),
         "_last_updt": "2026-04-30 01:10:17.0",
+    }
+
+
+def make_historical_segment(segment_id: int = 1) -> dict[str, str | None]:
+    """Helper function to create a mock historical-dataset traffic segment."""
+    return {
+        "segment_id": str(segment_id),
+        "street": "Cermak",
+        "direction": "EB",
+        "from_street": "California",
+        "to_street": "Western",
+        "length": str(0.5),
+        "street_heading": "W",
+        "start_longitude": str(-87.6954340282),
+        "start_latitude": str(41.8517403632),
+        "end_longitude": str(-87.6856474998),
+        "end_latitude": str(41.8519327365),
+        "speed": str(-1),
+        "time": "2019-04-30T01:10:17.0",
     }
 
 
@@ -248,7 +267,9 @@ def test_has_data_false():
 def test_historical_routes_to_legacy_dataset_only():
     with respx.mock:
         legacy_route = respx.get(HISTORICAL_2018_TO_2023_URL).mock(
-            return_value=Response(200, json=[make_segment(i) for i in range(1, 4)])
+            return_value=Response(
+                200, json=[make_historical_segment(i) for i in range(1, 4)]
+            )
         )
         current_route = respx.get(HISTORICAL_2024_TO_NOW_URL).mock(
             return_value=Response(200, json=[])
@@ -272,7 +293,9 @@ def test_historical_routes_to_current_dataset_only():
             return_value=Response(200, json=[])
         )
         current_route = respx.get(HISTORICAL_2024_TO_NOW_URL).mock(
-            return_value=Response(200, json=[make_segment(i) for i in range(1, 4)])
+            return_value=Response(
+                200, json=[make_historical_segment(i) for i in range(1, 4)]
+            )
         )
 
         with TrafficClient() as client:
@@ -290,10 +313,14 @@ def test_historical_routes_to_current_dataset_only():
 def test_historical_boundary_queries_both_datasets():
     with respx.mock:
         legacy_route = respx.get(HISTORICAL_2018_TO_2023_URL).mock(
-            return_value=Response(200, json=[make_segment(i) for i in range(1, 3)])
+            return_value=Response(
+                200, json=[make_historical_segment(i) for i in range(1, 3)]
+            )
         )
         current_route = respx.get(HISTORICAL_2024_TO_NOW_URL).mock(
-            return_value=Response(200, json=[make_segment(i) for i in range(3, 7)])
+            return_value=Response(
+                200, json=[make_historical_segment(i) for i in range(3, 7)]
+            )
         )
 
         with TrafficClient() as client:
@@ -322,9 +349,9 @@ def test_historical_where_clause_date_bounds():
 
             request: Request = cast(Request, route.calls[0].request)
             where = request.url.params["$where"]
-            assert "_last_updt >= '2019-03-01T08:30:00'" in where
-            assert "_last_updt <= '2019-03-02T09:00:00'" in where
-            assert "segmentid IN" not in where
+            assert "time >= '2019-03-01T08:30:00'" in where
+            assert "time <= '2019-03-02T09:00:00'" in where
+            assert "segment_id IN" not in where
 
 
 # $where clause includes segmentid IN(...) when segment_ids is provided
@@ -343,10 +370,10 @@ def test_historical_where_clause_segment_ids():
 
             request: Request = cast(Request, route.calls[0].request)
             where = request.url.params["$where"]
-            assert "segmentid IN (101,202,303)" in where
+            assert "segment_id IN (101,202,303)" in where
 
 
-# Range > 7 days with no segment_ids gives a RuntimeWarning
+# Range > 7 days with no segment_ids raises a RuntimeWarning
 def test_historical_warns_on_long_range_without_segment_ids():
     with respx.mock:
         _ = respx.get(HISTORICAL_2018_TO_2023_URL).mock(
@@ -361,7 +388,7 @@ def test_historical_warns_on_long_range_without_segment_ids():
                 )
 
 
-# Range > 7 days but segment_ids provided doesn't give a warning
+# Range > 7 days but segment_ids provided doesn't raise a warning
 def test_historical_no_warning_when_segment_ids_provided():
     with respx.mock:
         _ = respx.get(HISTORICAL_2018_TO_2023_URL).mock(
@@ -457,7 +484,9 @@ def test_historical_http_error_single_dataset():
 def test_historical_http_error_second_dataset_no_partial_results():
     with respx.mock:
         _ = respx.get(HISTORICAL_2018_TO_2023_URL).mock(
-            return_value=Response(200, json=[make_segment(i) for i in range(1, 4)])
+            return_value=Response(
+                200, json=[make_historical_segment(i) for i in range(1, 4)]
+            )
         )
         _ = respx.get(HISTORICAL_2024_TO_NOW_URL).mock(return_value=Response(500))
 
@@ -474,7 +503,7 @@ def test_historical_http_error_mid_pagination():
     with respx.mock:
         _ = respx.get(HISTORICAL_2018_TO_2023_URL).mock(
             side_effect=[
-                Response(200, json=[make_segment(i) for i in range(1000)]),
+                Response(200, json=[make_historical_segment(i) for i in range(1000)]),
                 Response(500),
             ]
         )
@@ -493,8 +522,8 @@ def test_historical_pagination_within_one_dataset():
     with respx.mock:
         _ = respx.get(HISTORICAL_2018_TO_2023_URL).mock(
             side_effect=[
-                Response(200, json=[make_segment(i) for i in range(1000)]),
-                Response(200, json=[make_segment(i) for i in range(250)]),
+                Response(200, json=[make_historical_segment(i) for i in range(1000)]),
+                Response(200, json=[make_historical_segment(i) for i in range(250)]),
             ]
         )
 
@@ -513,12 +542,14 @@ def test_historical_offset_resets_per_dataset():
     with respx.mock:
         legacy_route = respx.get(HISTORICAL_2018_TO_2023_URL).mock(
             side_effect=[
-                Response(200, json=[make_segment(i) for i in range(1000)]),
-                Response(200, json=[make_segment(i) for i in range(50)]),
+                Response(200, json=[make_historical_segment(i) for i in range(1000)]),
+                Response(200, json=[make_historical_segment(i) for i in range(50)]),
             ]
         )
         current_route = respx.get(HISTORICAL_2024_TO_NOW_URL).mock(
-            return_value=Response(200, json=[make_segment(i) for i in range(10)])
+            return_value=Response(
+                200, json=[make_historical_segment(i) for i in range(10)]
+            )
         )
 
         with TrafficClient() as client:
