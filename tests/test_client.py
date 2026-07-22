@@ -376,3 +376,19 @@ def test_historical_no_warning_when_segment_ids_provided():
                     end=datetime(2019, 2, 1),
                     segment_ids=[101],
                 )
+
+
+# Range <= 7 days with no segment_ids, no warning
+def test_historical_no_warning_when_range_short():
+    with respx.mock:
+        _ = respx.get(HISTORICAL_2018_TO_2023_URL).mock(
+            return_value=Response(200, json=[])
+        )
+
+        with TrafficClient() as client:
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", RuntimeWarning)
+                _ = client.get_historical_speeds(
+                    start=datetime(2019, 1, 1),
+                    end=datetime(2019, 1, 3),
+                )
