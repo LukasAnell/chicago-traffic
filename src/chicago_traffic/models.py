@@ -68,3 +68,20 @@ class CrashRecord:
     crash_type: str | None
     most_severe_injury: str | None
     extra: dict[str, str]
+
+
+@dataclass
+class CrashInjuries:
+    total: int
+    fatal: int
+    incapacitating: int
+    non_incapacitating: int
+    reported_not_evident: int
+    no_indication: int
+    unknown: int
+
+
+@dataclass
+class CrashLocation:
+    latitude: float
+    longitude: float
