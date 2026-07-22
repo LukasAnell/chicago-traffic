@@ -13,7 +13,7 @@ class TrafficClient:
 
     # dataset identifiers in Socrata
     __LIVE_DATASET: str = "/n4j6-wkkf.json"
-    __HISTORICAL_2024_TO_NOW: str = "/kf7e-cur8.json"
+    __HISTORICAL_2024_TO_NOW: str = "/4g9f-3jbs.json"
     __HISTORICAL_2018_TO_2023: str = "/sxs8-h27x.json"
 
     # end date of 2018-2023, start date of 2024-now
@@ -215,27 +215,28 @@ class TrafficClient:
                     f"Failed to fetch data from dataset {dataset}", cause=e
                 )
 
-        # same parsing as get_live_speeds()
+        # both historical datasets use a different field naming convention than the live dataset
+        # (no underscore prefixes and no comments field)
         segments: list[TrafficSegment] = []
         for item in json_response:
             try:
-                segment_id: int = self._get_required(item, "segmentid", int)
+                segment_id: int = self._get_required(item, "segment_id", int)
                 street: str = self._get_required(item, "street", str)
-                direction: str = self._get_required(item, "_direction", str)
-                from_street: str = self._get_required(item, "_fromst", str)
-                to_street: str = self._get_required(item, "_tost", str)
-                length: float = self._get_required(item, "_length", float)
-                street_heading: str = self._get_required(item, "_strheading", str)
-                comments: str | None = item.get("_comments")
-                start_lon: float = self._get_required(item, "start_lon", float)
-                start_lat: float = self._get_required(item, "_lif_lat", float)
-                end_lon: float = self._get_required(item, "_lit_lon", float)
-                end_lat: float = self._get_required(item, "_lit_lat", float)
-                current_speed: float = self._get_required(item, "_traffic", float)
+                direction: str = self._get_required(item, "direction", str)
+                from_street: str = self._get_required(item, "from_street", str)
+                to_street: str = self._get_required(item, "to_street", str)
+                length: float = self._get_required(item, "length", float)
+                street_heading: str = self._get_required(item, "street_heading", str)
+                comments: str | None = item.get("comments")
+                start_lon: float = self._get_required(item, "start_longitude", float)
+                start_lat: float = self._get_required(item, "start_latitude", float)
+                end_lon: float = self._get_required(item, "end_longitude", float)
+                end_lat: float = self._get_required(item, "end_latitude", float)
+                current_speed: float = self._get_required(item, "speed", float)
                 last_updated: datetime = self._get_required(
                     item,
-                    "_last_updt",
-                    lambda s: datetime.strptime(s, "%Y-%m-%d %H:%M:%S.%f"),
+                    "time",
+                    lambda s: datetime.strptime(s, "%Y-%m-%dT%H:%M:%S.%f"),
                 )
 
                 segment: TrafficSegment = TrafficSegment(
