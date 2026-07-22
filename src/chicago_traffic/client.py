@@ -48,6 +48,9 @@ class TrafficClient:
     def close(self) -> None:
         self.client.close()
 
+    def get_crashes(self):
+        pass
+
     def get_live_speeds(self) -> list[TrafficSegment]:
         # Declare empty json_response list to append each page of the response to
         json_response: list[dict[str, str | None]] = []
