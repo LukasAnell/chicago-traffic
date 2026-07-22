@@ -344,3 +344,18 @@ def test_historical_where_clause_segment_ids():
             request: Request = cast(Request, route.calls[0].request)
             where = request.url.params["$where"]
             assert "segmentid IN (101,202,303)" in where
+
+
+# Range > 7 days with no segment_ids gives a RuntimeWarning
+def test_historical_warns_on_long_range_without_segment_ids():
+    with respx.mock:
+        _ = respx.get(HISTORICAL_2018_TO_2023_URL).mock(
+            return_value=Response(200, json=[])
+        )
+
+        with TrafficClient() as client:
+            with pytest.warns(RuntimeWarning):
+                _ = client.get_historical_speeds(
+                    start=datetime(2019, 1, 1),
+                    end=datetime(2019, 2, 1),
+                )
