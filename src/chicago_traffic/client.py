@@ -165,10 +165,31 @@ class TrafficClient:
         else:
             datasets = [self.__HISTORICAL_2018_TO_2023, self.__HISTORICAL_2024_TO_NOW]
 
+        where: str = (
+            f"_last_updt >= '{start.strftime('%Y-%m-%dT%H:%M:%S')}'"
+            f" AND _last_updt <= '{end.strftime('%Y-%m-%dT%H:%M:%S')}'"
+        )
+
+        if segment_ids is not None:
+            ids_list: str = ",".join(str(id) for id in segment_ids)
+            where += f" AND segmendid IN ({ids_list})"
+
+        json_response: list[dict[str, str | None]] = []
+
         for dataset in datasets:
             # fetch data for each dataset and combine results
             try:
-                pass
+                offset: int = 0
+
+                while True:
+                    response: Response = self.client.get(
+                        dataset,
+                        params={
+                            "$limit": self.__PAGE_SIZE,
+                            "$offset": offset,
+                            "$where": where,
+                        },
+                    )
             except TrafficAPIError as e:
                 warnings.warn(
                     f"Failed to fetch data from dataset {dataset}: {e}",
