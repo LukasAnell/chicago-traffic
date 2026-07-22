@@ -190,12 +190,32 @@ class TrafficClient:
                             "$where": where,
                         },
                     )
-            except TrafficAPIError as e:
-                warnings.warn(
-                    f"Failed to fetch data from dataset {dataset}: {e}",
-                    category=RuntimeWarning,
+                    _ = response.raise_for_status
+
+                    raw: object = cast(object, response.json())
+
+                    if not isinstance(raw, list):
+                        raise TrafficAPIError("Unexpected Traffic API response format")
+
+                    page_data: list[dict[str, str | None]] = cast(
+                        list[dict[str, str | None]], raw
+                    )
+
+                    if not page_data:
+                        break
+
+                    json_response.extend(page_data)
+
+                    if len(page_data) < self.__PAGE_SIZE:
+                        break
+
+                    offset += self.__PAGE_SIZE
+            except HTTPError as e:
+                raise TrafficAPIError(
+                    f"Failed to fetch data from dataset {dataset}", cause=e
                 )
-                continue
+
+        # same parsing as get_live_speeds()
 
         return []
 
