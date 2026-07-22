@@ -409,3 +409,11 @@ def test_historical_start_after_end_raises_value_error():
                 )
 
             assert not route.called
+
+
+def test_historical_start_equal_end_raises_value_error():
+    with respx.mock:
+        with TrafficClient() as client:
+            with pytest.raises(ValueError):
+                same = datetime(2019, 1, 1)
+                _ = client.get_historical_speeds(start=same, end=same)
