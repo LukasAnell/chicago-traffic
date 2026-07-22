@@ -305,3 +305,23 @@ def test_historical_boundary_queries_both_datasets():
             assert legacy_route.called
             assert current_route.called
             assert len(segments) == 6
+
+
+# $where clause contains correctly formatted start/end bounds
+def test_historical_where_clause_date_bounds():
+    with respx.mock:
+        route = respx.get(HISTORICAL_2018_TO_2023_URL).mock(
+            return_value=Response(200, json=[])
+        )
+
+        with TrafficClient() as client:
+            _ = client.get_historical_speeds(
+                start=datetime(2019, 3, 1, 8, 30, 0),
+                end=datetime(2019, 3, 2, 9, 0, 0),
+            )
+
+            request: Request = cast(Request, route.calls[0].request)
+            where = request.url.params["$where"]
+            assert "_last_updt >= '2019-03-01T08:30:00'" in where
+            assert "_last_updt <= '2019-03-02T09:00:00'" in where
+            assert "segmentid IN" not in where
