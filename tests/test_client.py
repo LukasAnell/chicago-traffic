@@ -438,3 +438,32 @@ def test_historical_end_defaults_to_now():
             end_str = where.split("<= '")[1].split("'")[0]
             end_value = datetime.strptime(end_str, "%Y-%m-%dT%H:%M:%S")
             assert before.replace(microsecond=0) <= end_value <= after
+
+
+# HTTP error on the only dataset in range throws a TrafficAPIError, with no partial data
+def test_historical_http_error_single_dataset():
+    with respx.mock:
+        _ = respx.get(HISTORICAL_2018_TO_2023_URL).mock(return_value=Response(500))
+
+        with TrafficClient() as client:
+            with pytest.raises(TrafficAPIError):
+                _ = client.get_historical_speeds(
+                    start=datetime(2019, 1, 1),
+                    end=datetime(2019, 1, 2),
+                )
+
+
+# HTTP error on the second dataset when straddling throws TrafficAPIError, no partial data
+def test_historical_http_error_second_dataset_no_partial_results():
+    with respx.mock:
+        _ = respx.get(HISTORICAL_2018_TO_2023_URL).mock(
+            return_value=Response(200, json=[make_segment(i) for i in range(1, 4)])
+        )
+        _ = respx.get(HISTORICAL_2024_TO_NOW_URL).mock(return_value=Response(500))
+
+        with TrafficClient() as client:
+            with pytest.raises(TrafficAPIError):
+                _ = client.get_historical_speeds(
+                    start=datetime(2024, 1, 1),
+                    end=datetime(2024, 12, 1),
+                )
