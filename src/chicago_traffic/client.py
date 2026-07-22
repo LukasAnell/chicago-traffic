@@ -5,7 +5,7 @@ from typing import Callable, cast
 
 from httpx import Client, HTTPError, Response
 
-from chicago_traffic.models import TrafficAPIError, TrafficSegment
+from chicago_traffic.models import CrashRecord, TrafficAPIError, TrafficSegment
 
 
 class TrafficClient:
@@ -15,6 +15,7 @@ class TrafficClient:
     __LIVE_DATASET: str = "/n4j6-wkkf.json"
     __HISTORICAL_2024_TO_NOW: str = "/4g9f-3jbs.json"
     __HISTORICAL_2018_TO_2023: str = "/sxs8-h27x.json"
+    __CRASHES_DATASET: str = "/85ca-t3if.json"
 
     # end date of 2018-2023, start date of 2024-now
     __HISTORICAL_BOUNDARY = datetime(2024, 6, 11)
@@ -48,8 +49,10 @@ class TrafficClient:
     def close(self) -> None:
         self.client.close()
 
-    def get_crashes(self):
-        pass
+    def get_crashes(
+        self, start: datetime, end: datetime | None = None
+    ) -> list[CrashRecord]:
+        return list()
 
     def get_live_speeds(self) -> list[TrafficSegment]:
         # Declare empty json_response list to append each page of the response to
