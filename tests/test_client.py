@@ -263,3 +263,24 @@ def test_historical_routes_to_legacy_dataset_only():
             assert legacy_route.called
             assert not current_route.called
             assert len(segments) == 3
+
+
+# Range after the boundary, only the 2024-now dataset is queried
+def test_historical_routes_to_current_dataset_only():
+    with respx.mock:
+        legacy_route = respx.get(HISTORICAL_2018_TO_2023_URL).mock(
+            return_value=Response(200, json=[])
+        )
+        current_route = respx.get(HISTORICAL_2024_TO_NOW_URL).mock(
+            return_value=Response(200, json=[make_segment(i) for i in range(1, 4)])
+        )
+
+        with TrafficClient() as client:
+            segments: list[TrafficSegment] = client.get_historical_speeds(
+                start=datetime(2025, 1, 1),
+                end=datetime(2025, 1, 2),
+            )
+
+            assert not legacy_route.called
+            assert current_route.called
+            assert len(segments) == 3
