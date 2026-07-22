@@ -166,13 +166,13 @@ class TrafficClient:
             datasets = [self.__HISTORICAL_2018_TO_2023, self.__HISTORICAL_2024_TO_NOW]
 
         where: str = (
-            f"_last_updt >= '{start.strftime('%Y-%m-%dT%H:%M:%S')}'"
-            f" AND _last_updt <= '{end.strftime('%Y-%m-%dT%H:%M:%S')}'"
+            f"time >= '{start.strftime('%Y-%m-%dT%H:%M:%S')}'"
+            f" AND time <= '{end.strftime('%Y-%m-%dT%H:%M:%S')}'"
         )
 
         if segment_ids is not None:
             ids_list: str = ",".join(str(id) for id in segment_ids)
-            where += f" AND segmentid IN ({ids_list})"
+            where += f" AND segment_id IN ({ids_list})"
 
         json_response: list[dict[str, str | None]] = []
 
