@@ -506,3 +506,31 @@ def test_historical_pagination_within_one_dataset():
             )
 
             assert len(segments) == 1250
+
+
+# Offset resets to 0 for each dataset when the data range goes over the boundary
+def test_historical_offset_resets_per_dataset():
+    with respx.mock:
+        legacy_route = respx.get(HISTORICAL_2018_TO_2023_URL).mock(
+            side_effect=[
+                Response(200, json=[make_segment(i) for i in range(1000)]),
+                Response(200, json=[make_segment(i) for i in range(50)]),
+            ]
+        )
+        current_route = respx.get(HISTORICAL_2024_TO_NOW_URL).mock(
+            return_value=Response(200, json=[make_segment(i) for i in range(10)])
+        )
+
+        with TrafficClient() as client:
+            _ = client.get_historical_speeds(
+                start=datetime(2024, 1, 1),
+                end=datetime(2024, 12, 1),
+            )
+
+            legacy_first = cast(Request, legacy_route.calls[0].request)
+            legacy_second = cast(Request, legacy_route.calls[1].request)
+            current_first = cast(Request, current_route.calls[0].request)
+
+            assert legacy_first.url.params["$offset"] == "0"
+            assert legacy_second.url.params["$offset"] == "1000"
+            assert current_first.url.params["$offset"] == "0"
