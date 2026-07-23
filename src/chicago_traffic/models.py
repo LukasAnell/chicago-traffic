@@ -35,3 +35,55 @@ class TrafficAPIError(Exception):
         super().__init__(message)
 
         self.cause = cause
+
+
+@dataclass
+class CrashInjuries:
+    total: int
+    fatal: int
+    incapacitating: int
+    non_incapacitating: int
+    reported_not_evident: int
+    no_indication: int
+    unknown: int
+
+
+@dataclass
+class CrashLocation:
+    latitude: float
+    longitude: float
+
+
+@dataclass
+class CrashRecord:
+    """Represents a crash record in the Chicago traffic dataset."""
+
+    crash_record_id: str
+    crash_date: datetime
+    date_police_notified: datetime
+    posted_speed_limit: int
+    traffic_control_device: str
+    device_condition: str
+    weather_condition: str
+    lighting_condition: str
+    first_crash_type: str
+    trafficway_type: str
+    alignment: str
+    roadway_surface_cond: str
+    road_defect: str
+    damage: str
+    prim_contributory_cause: str
+    sec_contributory_cause: str
+    street_no: int
+    street_direction: str
+    street_name: str
+    beat_of_occurrence: int
+    num_units: int
+    crash_month: int
+    crash_hour: int
+    crash_day_of_week: int
+    injuries: CrashInjuries
+    location: CrashLocation | None
+    crash_type: str | None
+    most_severe_injury: str | None
+    extra: dict[str, str]

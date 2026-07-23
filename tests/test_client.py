@@ -7,10 +7,11 @@ import respx
 from httpx import Request, Response
 
 from chicago_traffic.client import TrafficClient
-from chicago_traffic.models import TrafficAPIError, TrafficSegment
+from chicago_traffic.models import CrashRecord, TrafficAPIError, TrafficSegment
 
 HISTORICAL_2018_TO_2023_URL = "https://data.cityofchicago.org/resource/sxs8-h27x.json"
 HISTORICAL_2024_TO_NOW_URL = "https://data.cityofchicago.org/resource/4g9f-3jbs.json"
+CRASHES_URL = "https://data.cityofchicago.org/resource/85ca-t3if.json"
 
 
 def make_segment(segment_id: int = 1) -> dict[str, str | None]:
@@ -50,6 +51,70 @@ def make_historical_segment(segment_id: int = 1) -> dict[str, str | None]:
         "speed": str(-1),
         "time": "2019-04-30T01:10:17.0",
     }
+
+
+def make_crash_record(
+    crash_record_id: str = "abc123",
+    *,
+    with_location: bool = True,
+    injuries_as_float_strings: bool = False,
+    extra_fields: dict[str, str] | None = None,
+    omit_crash_type: bool = False,
+    omit_most_severe_injury: bool = False,
+) -> dict[str, str | None]:
+    """Helper function to create a mock crash record with default values."""
+
+    def injury(n: int) -> str:
+        return f"{n}.0" if injuries_as_float_strings else str(n)
+
+    record: dict[str, str | None] = {
+        "crash_record_id": crash_record_id,
+        "crash_date": "2026-04-30T14:22:00.0",
+        "date_police_notified": "2026-04-30T15:00:00.0",
+        "posted_speed_limit": str(30),
+        "traffic_control_device": "TRAFFIC SIGNAL",
+        "device_condition": "FUNCTIONING PROPERLY",
+        "weather_condition": "CLEAR",
+        "lighting_condition": "DAYLIGHT",
+        "first_crash_type": "REAR END",
+        "trafficway_type": "ONE-WAY",
+        "alignment": "STRAIGHT AND LEVEL",
+        "roadway_surface_cond": "DRY",
+        "road_defect": "NO DEFECTS",
+        "damage": "$500 OR LESS",
+        "prim_contributory_cause": "FOLLOWING TOO CLOSELY",
+        "sec_contributory_cause": "UNABLE TO DETERMINE",
+        "street_no": str(6220),
+        "street_direction": "W",
+        "street_name": "CERMAK RD",
+        "beat_of_occurrence": str(331),
+        "num_units": str(2),
+        "crash_month": str(4),
+        "crash_hour": str(14),
+        "crash_day_of_week": str(5),
+        "injuries_total": injury(0),
+        "injuries_fatal": injury(0),
+        "injuries_incapacitating": injury(0),
+        "injuries_non_incapacitating": injury(0),
+        "injuries_reported_not_evident": injury(0),
+        "injuries_no_indication": injury(2),
+        "injuries_unknown": injury(0),
+    }
+
+    if with_location:
+        record["latitude"] = str(41.8517403632)
+        record["longitude"] = str(-87.6954340282)
+
+    if not omit_crash_type:
+        record["crash_type"] = "NO INJURY / DRIVE AWAY"
+
+    if not omit_most_severe_injury:
+        record["most_severe_injury"] = "NO INDICATION OF INJURY"
+
+    if extra_fields:
+        record.update(extra_fields)
+
+    return record
 
 
 # Single page
@@ -583,3 +648,382 @@ def test_historical_malformed_row_skipped_with_warning():
                 )
 
             assert segments == []
+
+
+# Single page
+def test_crashes_single_page():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(
+            return_value=Response(
+                200,
+                json=[make_crash_record(str(i)) for i in range(5)],
+            )
+        )
+
+        with TrafficClient() as client:
+            crashes: list[CrashRecord] = client.get_crashes(
+                start=datetime(2026, 4, 1),
+                end=datetime(2026, 4, 2),
+            )
+
+            assert len(respx.calls) == 1
+            assert len(crashes) == 5
+            assert crashes[0].street_name == "CERMAK RD"
+            assert crashes[0].posted_speed_limit == 30
+
+
+# Multi-page pagination
+def test_crashes_multi_page():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(
+            side_effect=[
+                Response(200, json=[make_crash_record(str(i)) for i in range(1000)]),
+                Response(200, json=[make_crash_record(str(i)) for i in range(250)]),
+            ]
+        )
+
+        with TrafficClient() as client:
+            crashes: list[CrashRecord] = client.get_crashes(
+                start=datetime(2026, 1, 1),
+                end=datetime(2026, 1, 2),
+            )
+
+            assert len(respx.calls) == 2
+            assert len(crashes) == 1250
+
+
+# Exact multiple of page size stops after empty page
+def test_crashes_exact_multiple():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(
+            side_effect=[
+                Response(200, json=[make_crash_record(str(i)) for i in range(1000)]),
+                Response(200, json=[]),
+            ]
+        )
+
+        with TrafficClient() as client:
+            crashes: list[CrashRecord] = client.get_crashes(
+                start=datetime(2026, 1, 1),
+                end=datetime(2026, 1, 2),
+            )
+
+            assert len(respx.calls) == 2
+            assert len(crashes) == 1000
+
+
+# Empty dataset
+def test_crashes_empty_dataset():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(return_value=Response(200, json=[]))
+
+        with TrafficClient() as client:
+            crashes: list[CrashRecord] = client.get_crashes(
+                start=datetime(2026, 1, 1),
+                end=datetime(2026, 1, 2),
+            )
+
+            assert len(respx.calls) == 1
+            assert crashes == []
+
+
+# HTTP error on first page
+def test_crashes_http_error_first_page():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(return_value=Response(500))
+
+        with TrafficClient() as client:
+            with pytest.raises(TrafficAPIError):
+                _ = client.get_crashes(
+                    start=datetime(2026, 1, 1),
+                    end=datetime(2026, 1, 2),
+                )
+
+
+# HTTP error mid-pagination
+def test_crashes_http_error_mid_pagination():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(
+            side_effect=[
+                Response(200, json=[make_crash_record(str(i)) for i in range(1000)]),
+                Response(500),
+            ]
+        )
+
+        with TrafficClient() as client:
+            with pytest.raises(TrafficAPIError):
+                _ = client.get_crashes(
+                    start=datetime(2026, 1, 1),
+                    end=datetime(2026, 1, 10),
+                )
+
+
+# Correct $offset/$limit values sent across pages
+def test_crashes_correct_offset():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(
+            side_effect=[
+                Response(200, json=[make_crash_record(str(i)) for i in range(1000)]),
+                Response(200, json=[make_crash_record(str(i)) for i in range(250)]),
+            ]
+        )
+
+        with TrafficClient() as client:
+            _ = client.get_crashes(
+                start=datetime(2026, 1, 1),
+                end=datetime(2026, 1, 10),
+            )
+
+            request: Request = cast(Request, respx.calls[0].request)
+            assert request.url.params["$offset"] == "0"
+            assert request.url.params["$limit"] == "1000"
+
+            request = cast(Request, respx.calls[1].request)
+            assert request.url.params["$offset"] == "1000"
+            assert request.url.params["$limit"] == "1000"
+
+
+# $where clause uses crash_date with correct start/end format
+def test_crashes_where_clause_date_range():
+    with respx.mock:
+        route = respx.get(CRASHES_URL).mock(return_value=Response(200, json=[]))
+
+        with TrafficClient() as client:
+            _ = client.get_crashes(
+                start=datetime(2026, 3, 1, 8, 30, 0),
+                end=datetime(2026, 3, 2, 9, 0, 0),
+            )
+
+            request: Request = cast(Request, route.calls[0].request)
+            where = request.url.params["$where"]
+            assert "crash_date >= '2026-03-01T08:30:00'" in where
+            assert "crash_date <= '2026-03-02T09:00:00'" in where
+
+
+# Range > 7 days raises a warning
+def test_crashes_warns_on_long_range():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(return_value=Response(200, json=[]))
+
+        with TrafficClient() as client:
+            with pytest.warns(RuntimeWarning):
+                _ = client.get_crashes(
+                    start=datetime(2026, 1, 1),
+                    end=datetime(2026, 2, 1),
+                )
+
+
+# Range <= 7 days does not warn
+def test_crashes_no_warning_when_range_short():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(return_value=Response(200, json=[]))
+
+        with TrafficClient() as client:
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", RuntimeWarning)
+                _ = client.get_crashes(
+                    start=datetime(2026, 1, 1),
+                    end=datetime(2026, 1, 3),
+                )
+
+
+# start >= end raises ValueError before any request is made
+def test_crashes_start_after_end_raises_value_error():
+    with respx.mock:
+        route = respx.get(CRASHES_URL).mock(return_value=Response(200, json=[]))
+
+        with TrafficClient() as client:
+            with pytest.raises(ValueError):
+                _ = client.get_crashes(
+                    start=datetime(2026, 1, 2),
+                    end=datetime(2026, 1, 1),
+                )
+
+            assert not route.called
+
+
+def test_crashes_start_equal_end_raises_value_error():
+    with respx.mock:
+        with TrafficClient() as client:
+            with pytest.raises(ValueError):
+                same = datetime(2026, 1, 1)
+                _ = client.get_crashes(start=same, end=same)
+
+
+# end defaults to "now" when not specified
+def test_crashes_end_defaults_to_now():
+    with respx.mock:
+        route = respx.get(CRASHES_URL).mock(return_value=Response(200, json=[]))
+
+        with TrafficClient() as client:
+            before = datetime.now()
+            _ = client.get_crashes(start=datetime(2026, 7, 1))
+            after = datetime.now()
+
+            request: Request = cast(Request, route.calls[0].request)
+            where = request.url.params["$where"]
+            end_str = where.split("<= '")[1].split("'")[0]
+            end_value = datetime.strptime(end_str, "%Y-%m-%dT%H:%M:%S")
+            assert before.replace(microsecond=0) <= end_value <= after
+
+
+# A malformed row is skipped with a warning, and the rest of page still parsed
+def test_crashes_malformed_row_skipped_with_warning():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(
+            return_value=Response(
+                200,
+                json=[make_crash_record("good"), {"malformed": "row"}],
+            )
+        )
+
+        with TrafficClient() as client:
+            with pytest.warns(RuntimeWarning):
+                crashes: list[CrashRecord] = client.get_crashes(
+                    start=datetime(2026, 1, 1),
+                    end=datetime(2026, 1, 2),
+                )
+
+            assert len(crashes) == 1
+            assert crashes[0].crash_record_id == "good"
+
+
+# Some older injury counts are formatted as floats, so have to make sure they're parsed correctly instead of being skipped
+def test_crashes_injuries_as_float_strings_parsed_correctly():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(
+            return_value=Response(
+                200,
+                json=[make_crash_record("old-record", injuries_as_float_strings=True)],
+            )
+        )
+
+        with TrafficClient() as client:
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", RuntimeWarning)
+                crashes: list[CrashRecord] = client.get_crashes(
+                    start=datetime(2026, 1, 1),
+                    end=datetime(2026, 1, 2),
+                )
+
+            assert len(crashes) == 1
+            assert crashes[0].injuries.no_indication == 2
+            assert crashes[0].injuries.total == 0
+
+
+# Location is populated when both latitude and longitude are present
+def test_crashes_location_present():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(
+            return_value=Response(200, json=[make_crash_record(with_location=True)])
+        )
+
+        with TrafficClient() as client:
+            crashes: list[CrashRecord] = client.get_crashes(
+                start=datetime(2026, 1, 1),
+                end=datetime(2026, 1, 2),
+            )
+
+            assert crashes[0].location is not None
+            assert crashes[0].location.latitude == pytest.approx(41.8517403632)
+            assert crashes[0].location.longitude == pytest.approx(-87.6954340282)
+
+
+# Location is None when latitude/longitude are absent
+def test_crashes_location_absent():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(
+            return_value=Response(200, json=[make_crash_record(with_location=False)])
+        )
+
+        with TrafficClient() as client:
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", RuntimeWarning)
+                crashes: list[CrashRecord] = client.get_crashes(
+                    start=datetime(2026, 1, 1),
+                    end=datetime(2026, 1, 2),
+                )
+
+            assert len(crashes) == 1
+            assert crashes[0].location is None
+
+
+# crash_type and most_severe_injury are None when not supplied
+def test_crashes_optional_severity_fields_absent():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(
+            return_value=Response(
+                200,
+                json=[
+                    make_crash_record(
+                        omit_crash_type=True, omit_most_severe_injury=True
+                    )
+                ],
+            )
+        )
+
+        with TrafficClient() as client:
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", RuntimeWarning)
+                crashes: list[CrashRecord] = client.get_crashes(
+                    start=datetime(2026, 1, 1),
+                    end=datetime(2026, 1, 2),
+                )
+
+            assert crashes[0].crash_type is None
+            assert crashes[0].most_severe_injury is None
+
+
+# Not-commonly populated fields fields land in extra field, not on named attributes
+def test_crashes_extra_fields_captured():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(
+            return_value=Response(
+                200,
+                json=[
+                    make_crash_record(
+                        extra_fields={
+                            "hit_and_run_i": "Y",
+                            "lane_cnt": "2",
+                            "report_type": "ON SCENE",
+                        }
+                    )
+                ],
+            )
+        )
+
+        with TrafficClient() as client:
+            crashes: list[CrashRecord] = client.get_crashes(
+                start=datetime(2026, 1, 1),
+                end=datetime(2026, 1, 2),
+            )
+
+            assert crashes[0].extra["hit_and_run_i"] == "Y"
+            assert crashes[0].extra["lane_cnt"] == "2"
+            assert crashes[0].extra["report_type"] == "ON SCENE"
+
+            # make sure named fields don't show up in extra field
+            assert "crash_record_id" not in crashes[0].extra
+            assert "street_name" not in crashes[0].extra
+            assert "latitude" not in crashes[0].extra
+            assert "longitude" not in crashes[0].extra
+
+
+# Make sure the API response's GeoJSON field called "location" doesn't get included in the extra field
+def test_crashes_geojson_location_field_excluded_from_extra():
+    with respx.mock:
+        record: dict[str, object] = {**make_crash_record()}
+        record["location"] = {
+            "type": "Point",
+            "coordinates": [-87.678429350884, 41.937293154381],
+        }
+
+        _ = respx.get(CRASHES_URL).mock(return_value=Response(200, json=[record]))
+
+        with TrafficClient() as client:
+            crashes: list[CrashRecord] = client.get_crashes(
+                start=datetime(2026, 1, 1),
+                end=datetime(2026, 1, 2),
+            )
+
+            assert "location" not in crashes[0].extra
