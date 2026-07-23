@@ -946,3 +946,29 @@ def test_crashes_location_absent():
 
             assert len(crashes) == 1
             assert crashes[0].location is None
+
+
+# crash_type and most_severe_injury are None when not supplied
+def test_crashes_optional_severity_fields_absent():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(
+            return_value=Response(
+                200,
+                json=[
+                    make_crash_record(
+                        omit_crash_type=True, omit_most_severe_injury=True
+                    )
+                ],
+            )
+        )
+
+        with TrafficClient() as client:
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", RuntimeWarning)
+                crashes: list[CrashRecord] = client.get_crashes(
+                    start=datetime(2026, 1, 1),
+                    end=datetime(2026, 1, 2),
+                )
+
+            assert crashes[0].crash_type is None
+            assert crashes[0].most_severe_injury is None
