@@ -756,3 +756,28 @@ def test_crashes_http_error_mid_pagination():
                     start=datetime(2026, 1, 1),
                     end=datetime(2026, 1, 10),
                 )
+
+
+# Correct $offset/$limit values sent across pages
+def test_crashes_correct_offset():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(
+            side_effect=[
+                Response(200, json=[make_crash_record(str(i)) for i in range(1000)]),
+                Response(200, json=[make_crash_record(str(i)) for i in range(250)]),
+            ]
+        )
+
+        with TrafficClient() as client:
+            _ = client.get_crashes(
+                start=datetime(2026, 1, 1),
+                end=datetime(2026, 1, 10),
+            )
+
+            request: Request = cast(Request, respx.calls[0].request)
+            assert request.url.params["$offset"] == "0"
+            assert request.url.params["$limit"] == "1000"
+
+            request = cast(Request, respx.calls[1].request)
+            assert request.url.params["$offset"] == "1000"
+            assert request.url.params["$limit"] == "1000"
