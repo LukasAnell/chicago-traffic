@@ -7,10 +7,11 @@ import respx
 from httpx import Request, Response
 
 from chicago_traffic.client import TrafficClient
-from chicago_traffic.models import TrafficAPIError, TrafficSegment
+from chicago_traffic.models import CrashRecord, TrafficAPIError, TrafficSegment
 
 HISTORICAL_2018_TO_2023_URL = "https://data.cityofchicago.org/resource/sxs8-h27x.json"
 HISTORICAL_2024_TO_NOW_URL = "https://data.cityofchicago.org/resource/4g9f-3jbs.json"
+CRASHES_URL = "https://data.cityofchicago.org/resource/85ca-t3if.json"
 
 
 def make_segment(segment_id: int = 1) -> dict[str, str | None]:
@@ -50,6 +51,70 @@ def make_historical_segment(segment_id: int = 1) -> dict[str, str | None]:
         "speed": str(-1),
         "time": "2019-04-30T01:10:17.0",
     }
+
+
+def make_crash_record(
+    crash_record_id: str = "abc123",
+    *,
+    with_location: bool = True,
+    injuries_as_float_strings: bool = False,
+    extra_fields: dict[str, str] | None = None,
+    omit_crash_type: bool = False,
+    omit_most_severe_injury: bool = False,
+) -> dict[str, str | None]:
+    """Helper function to create a mock crash record with default values."""
+
+    def injury(n: int) -> str:
+        return f"{n}.0" if injuries_as_float_strings else str(n)
+
+    record: dict[str, str | None] = {
+        "crash_record_id": crash_record_id,
+        "crash_date": "2026-04-30T14:22:00.0",
+        "date_police_notified": "2026-04-30T15:00:00.0",
+        "posted_speed_limit": str(30),
+        "traffic_control_device": "TRAFFIC SIGNAL",
+        "device_condition": "FUNCTIONING PROPERLY",
+        "weather_condition": "CLEAR",
+        "lighting_condition": "DAYLIGHT",
+        "first_crash_type": "REAR END",
+        "trafficway_type": "ONE-WAY",
+        "alignment": "STRAIGHT AND LEVEL",
+        "roadway_surface_cond": "DRY",
+        "road_defect": "NO DEFECTS",
+        "damage": "$500 OR LESS",
+        "prim_contributory_cause": "FOLLOWING TOO CLOSELY",
+        "sec_contributory_cause": "UNABLE TO DETERMINE",
+        "street_no": str(6220),
+        "street_direction": "W",
+        "street_name": "CERMAK RD",
+        "beat_of_occurrence": str(331),
+        "num_units": str(2),
+        "crash_month": str(4),
+        "crash_hour": str(14),
+        "crash_day_of_week": str(5),
+        "injuries_total": injury(0),
+        "injuries_fatal": injury(0),
+        "injuries_incapacitating": injury(0),
+        "injuries_non_incapacitating": injury(0),
+        "injuries_reported_not_evident": injury(0),
+        "injuries_no_indication": injury(2),
+        "injuries_unknown": injury(0),
+    }
+
+    if with_location:
+        record["latitude"] = str(41.8517403632)
+        record["longitude"] = str(-87.6954340282)
+
+    if not omit_crash_type:
+        record["crash_type"] = "NO INJURY / DRIVE AWAY"
+
+    if not omit_most_severe_injury:
+        record["most_severe_injury"] = "NO INDICATION OF INJURY"
+
+    if extra_fields:
+        record.update(extra_fields)
+
+    return record
 
 
 # Single page
