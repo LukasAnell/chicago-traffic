@@ -798,3 +798,30 @@ def test_crashes_where_clause_date_range():
             where = request.url.params["$where"]
             assert "crash_date >= '2026-03-01T08:30:00'" in where
             assert "crash_date <= '2026-03-02T09:00:00'" in where
+
+
+# Range > 7 days raises a warning
+def test_crashes_warns_on_long_range():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(return_value=Response(200, json=[]))
+
+        with TrafficClient() as client:
+            with pytest.warns(RuntimeWarning):
+                _ = client.get_crashes(
+                    start=datetime(2026, 1, 1),
+                    end=datetime(2026, 2, 1),
+                )
+
+
+# Range <= 7 days does not warn
+def test_crashes_no_warning_when_range_short():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(return_value=Response(200, json=[]))
+
+        with TrafficClient() as client:
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", RuntimeWarning)
+                _ = client.get_crashes(
+                    start=datetime(2026, 1, 1),
+                    end=datetime(2026, 1, 3),
+                )
