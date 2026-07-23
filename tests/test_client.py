@@ -781,3 +781,20 @@ def test_crashes_correct_offset():
             request = cast(Request, respx.calls[1].request)
             assert request.url.params["$offset"] == "1000"
             assert request.url.params["$limit"] == "1000"
+
+
+# $where clause uses crash_date with correct start/end format
+def test_crashes_where_clause_date_range():
+    with respx.mock:
+        route = respx.get(CRASHES_URL).mock(return_value=Response(200, json=[]))
+
+        with TrafficClient() as client:
+            _ = client.get_crashes(
+                start=datetime(2026, 3, 1, 8, 30, 0),
+                end=datetime(2026, 3, 2, 9, 0, 0),
+            )
+
+            request: Request = cast(Request, route.calls[0].request)
+            where = request.url.params["$where"]
+            assert "crash_date >= '2026-03-01T08:30:00'" in where
+            assert "crash_date <= '2026-03-02T09:00:00'" in where
