@@ -72,7 +72,7 @@ class TrafficClient:
 
         where: str = (
             f"crash_date >= '{start.strftime('%Y-%m-%dT%H:%M:%S')}'"
-            f" AND crash_date <= '{end.strftime('%Y-%dT%H:%M:%S')}'"
+            f" AND crash_date <= '{end.strftime('%Y-%m-%dT%H:%M:%S')}'"
         )
 
         try:
@@ -172,21 +172,27 @@ class TrafficClient:
                     item, "crash_day_of_week", int
                 )
                 injuries: CrashInjuries = CrashInjuries(
-                    total=self._get_required(item, "injuries_total", int),
-                    fatal=self._get_required(item, "injuries_fatal", int),
+                    total=self._get_required(
+                        item, "injuries_total", lambda s: int(float(s))
+                    ),
+                    fatal=self._get_required(
+                        item, "injuries_fatal", lambda s: int(float(s))
+                    ),
                     incapacitating=self._get_required(
-                        item, "injuries_incapacitating", int
+                        item, "injuries_incapacitating", lambda s: int(float(s))
                     ),
                     non_incapacitating=self._get_required(
-                        item, "injuries_non_incapacitating", int
+                        item, "injuries_non_incapacitating", lambda s: int(float(s))
                     ),
                     reported_not_evident=self._get_required(
-                        item, "injuries_reported_not_evident", int
+                        item, "injuries_reported_not_evident", lambda s: int(float(s))
                     ),
                     no_indication=self._get_required(
-                        item, "injuries_no_indication", int
+                        item, "injuries_no_indication", lambda s: int(float(s))
                     ),
-                    unknown=self._get_required(item, "injuries_unknown", int),
+                    unknown=self._get_required(
+                        item, "injuries_unknown", lambda s: int(float(s))
+                    ),
                 )
                 location: CrashLocation | None = (
                     CrashLocation(
