@@ -886,3 +886,63 @@ def test_crashes_malformed_row_skipped_with_warning():
 
             assert len(crashes) == 1
             assert crashes[0].crash_record_id == "good"
+
+
+# Some older injury counts are formatted as floats, so have to make sure they're parsed correctly instead of being skipped
+def test_crashes_injuries_as_float_strings_parsed_correctly():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(
+            return_value=Response(
+                200,
+                json=[make_crash_record("old-record", injuries_as_float_strings=True)],
+            )
+        )
+
+        with TrafficClient() as client:
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", RuntimeWarning)
+                crashes: list[CrashRecord] = client.get_crashes(
+                    start=datetime(2026, 1, 1),
+                    end=datetime(2026, 1, 2),
+                )
+
+            assert len(crashes) == 1
+            assert crashes[0].injuries.no_indication == 2
+            assert crashes[0].injuries.total == 0
+
+
+# Location is populated when both latitude and longitude are present
+def test_crashes_location_present():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(
+            return_value=Response(200, json=[make_crash_record(with_location=True)])
+        )
+
+        with TrafficClient() as client:
+            crashes: list[CrashRecord] = client.get_crashes(
+                start=datetime(2026, 1, 1),
+                end=datetime(2026, 1, 2),
+            )
+
+            assert crashes[0].location is not None
+            assert crashes[0].location.latitude == pytest.approx(41.8517403632)
+            assert crashes[0].location.longitude == pytest.approx(-87.6954340282)
+
+
+# Location is None when latitude/longitude are absent
+def test_crashes_location_absent():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(
+            return_value=Response(200, json=[make_crash_record(with_location=False)])
+        )
+
+        with TrafficClient() as client:
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", RuntimeWarning)
+                crashes: list[CrashRecord] = client.get_crashes(
+                    start=datetime(2026, 1, 1),
+                    end=datetime(2026, 1, 2),
+                )
+
+            assert len(crashes) == 1
+            assert crashes[0].location is None
