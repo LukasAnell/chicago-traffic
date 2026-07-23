@@ -865,3 +865,24 @@ def test_crashes_end_defaults_to_now():
             end_str = where.split("<= '")[1].split("'")[0]
             end_value = datetime.strptime(end_str, "%Y-%m-%dT%H:%M:%S")
             assert before.replace(microsecond=0) <= end_value <= after
+
+
+# A malformed row is skipped with a warning, and the rest of page still parsed
+def test_crashes_malformed_row_skipped_with_warning():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(
+            return_value=Response(
+                200,
+                json=[make_crash_record("good"), {"malformed": "row"}],
+            )
+        )
+
+        with TrafficClient() as client:
+            with pytest.warns(RuntimeWarning):
+                crashes: list[CrashRecord] = client.get_crashes(
+                    start=datetime(2026, 1, 1),
+                    end=datetime(2026, 1, 2),
+                )
+
+            assert len(crashes) == 1
+            assert crashes[0].crash_record_id == "good"
