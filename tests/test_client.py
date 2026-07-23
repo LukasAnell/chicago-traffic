@@ -1006,3 +1006,24 @@ def test_crashes_extra_fields_captured():
             assert "crash_record_id" not in crashes[0].extra
             assert "street_name" not in crashes[0].extra
             assert "latitude" not in crashes[0].extra
+            assert "longitude" not in crashes[0].extra
+
+
+# Make sure the API response's GeoJSON field called "location" doesn't get included in the extra field
+def test_crashes_geojson_location_field_excluded_from_extra():
+    with respx.mock:
+        record: dict[str, object] = {**make_crash_record()}
+        record["location"] = {
+            "type": "Point",
+            "coordinates": [-87.678429350884, 41.937293154381],
+        }
+
+        _ = respx.get(CRASHES_URL).mock(return_value=Response(200, json=[record]))
+
+        with TrafficClient() as client:
+            crashes: list[CrashRecord] = client.get_crashes(
+                start=datetime(2026, 1, 1),
+                end=datetime(2026, 1, 2),
+            )
+
+            assert "location" not in crashes[0].extra
