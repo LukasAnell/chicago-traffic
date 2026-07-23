@@ -670,3 +670,23 @@ def test_crashes_single_page():
             assert len(crashes) == 5
             assert crashes[0].street_name == "CERMAK RD"
             assert crashes[0].posted_speed_limit == 30
+
+
+# Multi-page pagination
+def test_crashes_multi_page():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(
+            side_effect=[
+                Response(200, json=[make_crash_record(str(i)) for i in range(1000)]),
+                Response(200, json=[make_crash_record(str(i)) for i in range(250)]),
+            ]
+        )
+
+        with TrafficClient() as client:
+            crashes: list[CrashRecord] = client.get_crashes(
+                start=datetime(2026, 1, 1),
+                end=datetime(2026, 1, 2),
+            )
+
+            assert len(respx.calls) == 2
+            assert len(crashes) == 1250
