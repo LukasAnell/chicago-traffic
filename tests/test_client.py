@@ -725,3 +725,34 @@ def test_crashes_empty_dataset():
 
             assert len(respx.calls) == 1
             assert crashes == []
+
+
+# HTTP error on first page
+def test_crashes_http_error_first_page():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(return_value=Response(500))
+
+        with TrafficClient() as client:
+            with pytest.raises(TrafficAPIError):
+                _ = client.get_crashes(
+                    start=datetime(2026, 1, 1),
+                    end=datetime(2026, 1, 2),
+                )
+
+
+# HTTP error mid-pagination
+def test_crashes_http_error_mid_pagination():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(
+            side_effect=[
+                Response(200, json=[make_crash_record(str(i)) for i in range(1000)]),
+                Response(500),
+            ]
+        )
+
+        with TrafficClient() as client:
+            with pytest.raises(TrafficAPIError):
+                _ = client.get_crashes(
+                    start=datetime(2026, 1, 1),
+                    end=datetime(2026, 1, 10),
+                )
