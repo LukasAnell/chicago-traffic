@@ -825,3 +825,26 @@ def test_crashes_no_warning_when_range_short():
                     start=datetime(2026, 1, 1),
                     end=datetime(2026, 1, 3),
                 )
+
+
+# start >= end raises ValueError before any request is made
+def test_crashes_start_after_end_raises_value_error():
+    with respx.mock:
+        route = respx.get(CRASHES_URL).mock(return_value=Response(200, json=[]))
+
+        with TrafficClient() as client:
+            with pytest.raises(ValueError):
+                _ = client.get_crashes(
+                    start=datetime(2026, 1, 2),
+                    end=datetime(2026, 1, 1),
+                )
+
+            assert not route.called
+
+
+def test_crashes_start_equal_end_raises_value_error():
+    with respx.mock:
+        with TrafficClient() as client:
+            with pytest.raises(ValueError):
+                same = datetime(2026, 1, 1)
+                _ = client.get_crashes(start=same, end=same)
