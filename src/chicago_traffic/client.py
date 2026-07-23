@@ -246,6 +246,7 @@ class TrafficClient:
                         "longitude",
                         "crash_type",
                         "most_severe_injury",
+                        "location",
                     }
                 }
 
