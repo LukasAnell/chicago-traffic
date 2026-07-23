@@ -690,3 +690,23 @@ def test_crashes_multi_page():
 
             assert len(respx.calls) == 2
             assert len(crashes) == 1250
+
+
+# Exact multiple of page size stops after empty page
+def test_crashes_exact_multiple():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(
+            side_effect=[
+                Response(200, json=[make_crash_record(str(i)) for i in range(1000)]),
+                Response(200, json=[]),
+            ]
+        )
+
+        with TrafficClient() as client:
+            crashes: list[CrashRecord] = client.get_crashes(
+                start=datetime(2026, 1, 1),
+                end=datetime(2026, 1, 2),
+            )
+
+            assert len(respx.calls) == 2
+            assert len(crashes) == 1000
