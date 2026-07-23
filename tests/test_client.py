@@ -710,3 +710,18 @@ def test_crashes_exact_multiple():
 
             assert len(respx.calls) == 2
             assert len(crashes) == 1000
+
+
+# Empty dataset
+def test_crashes_empty_dataset():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(return_value=Response(200, json=[]))
+
+        with TrafficClient() as client:
+            crashes: list[CrashRecord] = client.get_crashes(
+                start=datetime(2026, 1, 1),
+                end=datetime(2026, 1, 2),
+            )
+
+            assert len(respx.calls) == 1
+            assert crashes == []
