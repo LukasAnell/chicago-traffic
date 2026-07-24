@@ -167,4 +167,5 @@ It's recommended to catch this exception when calling any of the three data-fetc
 
 ## Project Status
 
-This project is in its very early stages, and is just something I'm making for myself to use in other projects. It's not published to PyPI yet, so the API is subject to change until then.
+This project is in its very early stages, and is just something I'm making for myself to use in other projects.
+It's not published to PyPI yet, so the API is subject to change until then.
