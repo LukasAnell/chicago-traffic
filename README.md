@@ -149,8 +149,13 @@ A custom exception type that's used for all failure modes across the three data-
 
 ## Design Notes
 
+- No built-in local storage of data as of now.
+- Small differences in field names between the datasets are normalized behind the scenes.
+
 ---
 
 ## Project Status
+
+- This project is in its very early stages, and is just something I'm making for myself to use in other projects. It's not published to PyPI yet, so the API is subject to change until then.
 
 ---
