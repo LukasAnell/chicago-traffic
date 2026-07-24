@@ -100,6 +100,51 @@ Fetches crash records (dataset `85ca-t3if`, spanning from September 2017-present
 
 ## Data Models
 
+### `TrafficSegment`
+
+One road-segment speed reading. All fields are required except for `comments`, which seems to not be supplied very often.
+
+| Field | Type | Notes |
+|---|---|---|
+| `segment_id` | `int` | |
+| `street` | `str` | |
+| `direction` | `str` | |
+| `from_street` / `to_street` | `str` | |
+| `length` | `float` | |
+| `street_heading` | `str` | |
+| `comments` | `str \| None` | Often `None`, and always `None` for historical data |
+| `start_lon` / `start_lat` / `end_lon` / `end_lat` | `float` | |
+| `current_speed` | `float` | `-1` indicates no data, but use `has_data`, rather than checking `-1` directly |
+| `last_updated` | `datetime` | |
+| `has_data` | `bool` (property) | `True` when `current_speed != -1` |
+
+### `CrashRecord`
+
+One crash report. Splits fields into core fields (which are always present), fields that may be useful (but are not always present), two nested objects (`CrashInjuries` and `CrashLocation`), and an `extra` dictionary for any other fields that may be present in the dataset.
+
+| Field | Type | Notes |
+|---|---|---|
+| ~20 core fields | various | e.g. `crash_record_id: str`, `crash_date: datetime`, `posted_speed_limit`, `weather_condition`, `first_crash_type`, `street_name`, etc. |
+| `crash_type` | `str \| None` | Promoted out of `extra` for typed access |
+| `most_severe_injury` | `str \| None` | Promoted out of `extra` for typed access |
+| `injuries` | `CrashInjuries` | Always present as a unit |
+| `location` | `CrashLocation \| None` | Present/absent as a unit, and older records can lack it entirely |
+| `extra` | `dict[str, str]` | Sparse/administrative fields (listed below) |
+
+`extra` currently includes the fields: `report_type`, `hit_and_run_i`, `intersection_related_i`, `private_property_i`, `statements_taken_i`, `photos_taken_i`, `lane_cnt`, `idot_control_no`, `crash_date_est_i`, `dooring_i`, `work_zone_i`, `work_zone_type`, `workers_present_i`. More fields may be added in the future. If you need typed access to any of these fields, you will need to parse them yourself.
+
+### `CrashInjuries`
+
+A nested object on every `CrashRecord`. Contains seven `int` fields: `total`, `fatal`, `incapacitating`, `non_incapacitating`, `reported_not_evident`, `no_indication`, `unknown`. Some of these fields are reported as float-strings in older records (e.g. `"1.0"`), but the package parses them correctly into ints.
+
+### `CrashLocation`
+
+A nested object that's present on some `CrashRecord`s. Contains the fields `latitude` and `longitude` as `float`, and will be present or absent together (Never one or the other).
+
+### `TrafficAPIError`
+
+A custom exception type that's used for all failure modes across the three data-fetching functions, including network errors, HTTP errors, and API-level errors. It also has an optional `cause: Exception | None` attribute that points to the underlying exception that caused the failure, if any. It's recommended to catch this exception when calling any of the three data-fetching functions, rather than catching specific exceptions.
+
 ---
 
 ## Design Notes
