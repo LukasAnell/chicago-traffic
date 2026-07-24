@@ -83,7 +83,7 @@ This function fetches the most recent traffic speeds for all monitored road segm
 
 ### `get_historical_speeds(start: datetime, end: datetime | None = None, segment_ids: list[int] | None = None) -> list[TrafficSegment]`
 
-Fetches historical traffic speeds for all monitored road segments in the city of Chicago (datasets `n4j6-wkkf` and `5c7e-3z7z`).
+Fetches historical traffic speeds for all monitored road segments in the city of Chicago (datasets `4g9f-3jbs` and `sxs8-h27x`).
 Because the historical data is split across two datasets, the library handles the routing of requests to the correct dataset based on the requested time range.
 
 - `end` defaults to the current time if not provided.
