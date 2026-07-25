@@ -1,3 +1,4 @@
+import warnings
 from typing import Callable, cast
 
 import httpx
@@ -51,4 +52,15 @@ def parse_rows[T](
     row_to_object: Callable[[dict[str, str | None]], T],
     label: str,
 ) -> list[T]:
-    return list()
+    results: list[T] = []
+
+    for item in rows:
+        try:
+            results.append(row_to_object(item))
+        except TrafficAPIError as e:
+            warnings.warn(
+                f"Skipping {label} due to error: {e}", category=RuntimeWarning
+            )
+            continue
+
+    return results
