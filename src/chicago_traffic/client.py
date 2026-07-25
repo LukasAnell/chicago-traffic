@@ -1,9 +1,9 @@
 import warnings
 from datetime import datetime
 from types import TracebackType
-from typing import Callable, cast
+from typing import Callable
 
-from httpx import Client, HTTPError, Response
+from httpx import Client
 
 from chicago_traffic.models import (
     CrashInjuries,
