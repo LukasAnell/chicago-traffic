@@ -49,8 +49,8 @@ class TrafficClient:
 
     def __exit__(
         self,
-        exc_type: type | None,
-        exc_value: Exception | None,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
         _ = self.client.__exit__(exc_type, exc_value, traceback)
