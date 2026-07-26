@@ -1,7 +1,7 @@
 import warnings
+from collections.abc import Callable
 from datetime import datetime
 from types import TracebackType
-from typing import Callable
 
 from httpx import Client
 
@@ -25,7 +25,9 @@ class TrafficClient:
     __CRASHES_DATASET: str = "/85ca-t3if.json"
 
     # end date of 2018-2023, start date of 2024-now
-    __HISTORICAL_BOUNDARY = datetime(2024, 6, 11)
+    __HISTORICAL_BOUNDARY = datetime(
+        2024, 6, 11, tzinfo=datetime.now().astimezone().tzinfo
+    )
 
     # Socrata's max page size for requests
     __PAGE_SIZE: int = 1_000
@@ -60,7 +62,7 @@ class TrafficClient:
         self, start: datetime, end: datetime | None = None
     ) -> list[CrashRecord]:
         if end is None:
-            end = datetime.now()
+            end = datetime.now().astimezone()
 
         if start >= end:
             raise ValueError("Start datetime must be before end datetime")
@@ -95,7 +97,7 @@ class TrafficClient:
         segment_ids: list[int] | None = None,
     ) -> list[TrafficSegment]:
         if end is None:
-            end = datetime.now()
+            end = datetime.now().astimezone()
 
         if start >= end:
             raise ValueError("Start datetime must be before end datetime")
@@ -167,7 +169,9 @@ class TrafficClient:
         last_updated: datetime = self._get_required(
             item,
             "_last_updt",
-            lambda s: datetime.strptime(s, "%Y-%m-%d %H:%M:%S.%f"),
+            lambda s: datetime.strptime(s, "%Y-%m-%d %H:%M:%S.%f").replace(
+                tzinfo=datetime.now().astimezone().tzinfo
+            ),
         )
 
         return TrafficSegment(
@@ -204,7 +208,9 @@ class TrafficClient:
         last_updated: datetime = self._get_required(
             item,
             "time",
-            lambda s: datetime.strptime(s, "%Y-%m-%dT%H:%M:%S.%f"),
+            lambda s: datetime.strptime(s, "%Y-%m-%dT%H:%M:%S.%f").replace(
+                tzinfo=datetime.now().astimezone().tzinfo
+            ),
         )
 
         return TrafficSegment(
@@ -227,12 +233,18 @@ class TrafficClient:
     def _row_to_crash(self, item: dict[str, str | None]) -> CrashRecord:
         crash_record_id: str = self._get_required(item, "crash_record_id", str)
         crash_date: datetime = self._get_required(
-            item, "crash_date", lambda s: datetime.strptime(s, "%Y-%m-%dT%H:%M:%S.%f")
+            item,
+            "crash_date",
+            lambda s: datetime.strptime(s, "%Y-%m-%dT%H:%M:%S.%f").replace(
+                tzinfo=datetime.now().astimezone().tzinfo
+            ),
         )
         date_police_notified: datetime = self._get_required(
             item,
             "date_police_notified",
-            lambda s: datetime.strptime(s, "%Y-%m-%dT%H:%M:%S.%f"),
+            lambda s: datetime.strptime(s, "%Y-%m-%dT%H:%M:%S.%f").replace(
+                tzinfo=datetime.now().astimezone().tzinfo
+            ),
         )
         posted_speed_limit: int = self._get_required(item, "posted_speed_limit", int)
         traffic_control_device: str = self._get_required(
