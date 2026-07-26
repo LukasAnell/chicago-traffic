@@ -25,7 +25,9 @@ def make_segment(current_speed: float = 25.0) -> TrafficSegment:
         end_lon=-87.6856474998,
         end_lat=41.8519327365,
         current_speed=current_speed,
-        last_updated=datetime(2026, 4, 30, 1, 10, 17),
+        last_updated=datetime(
+            2026, 4, 30, 1, 10, 17, tzinfo=datetime.now().astimezone().tzinfo
+        ),
     )
 
 
@@ -38,8 +40,12 @@ def make_crash_record(
     """Helper to build a minimal CrashRecord for model-level tests."""
     return CrashRecord(
         crash_record_id="abc123",
-        crash_date=datetime(2026, 4, 30, 14, 22, 0),
-        date_police_notified=datetime(2026, 4, 30, 15, 0, 0),
+        crash_date=datetime(
+            2026, 4, 30, 14, 22, 0, tzinfo=datetime.now().astimezone().tzinfo
+        ),
+        date_police_notified=datetime(
+            2026, 4, 30, 15, 0, 0, tzinfo=datetime.now().astimezone().tzinfo
+        ),
         posted_speed_limit=30,
         traffic_control_device="TRAFFIC SIGNAL",
         device_condition="FUNCTIONING PROPERLY",
