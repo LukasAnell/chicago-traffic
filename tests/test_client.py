@@ -209,9 +209,8 @@ def test_http_error_first_page():
         )
 
         # uses pytest.raises to make sure that TrafficAPIError is raised when the request returns a 500 error
-        with TrafficClient() as client:
-            with pytest.raises(TrafficAPIError):
-                _ = client.get_live_speeds()
+        with TrafficClient() as client, pytest.raises(TrafficAPIError):
+            _ = client.get_live_speeds()
 
 
 # HTTP error mid-pagination
@@ -229,9 +228,8 @@ def test_http_error_mid_pagination():
             ]
         )
 
-        with TrafficClient() as client:
-            with pytest.raises(TrafficAPIError):
-                _ = client.get_live_speeds()
+        with TrafficClient() as client, pytest.raises(TrafficAPIError):
+            _ = client.get_live_speeds()
 
 
 # Malformed row on page 2
@@ -250,9 +248,8 @@ def test_malformed_row_skipped_with_warning():
             ]
         )
 
-        with TrafficClient() as client:
-            with pytest.warns(RuntimeWarning):
-                _ = client.get_live_speeds()
+        with TrafficClient() as client, pytest.warns(RuntimeWarning):
+            _ = client.get_live_speeds()
 
 
 # Correct $offset values sent
@@ -342,8 +339,8 @@ def test_historical_routes_to_legacy_dataset_only():
 
         with TrafficClient() as client:
             segments: list[TrafficSegment] = client.get_historical_speeds(
-                start=datetime(2019, 1, 1),
-                end=datetime(2019, 1, 2),
+                start=datetime(2019, 1, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                end=datetime(2019, 1, 2, tzinfo=datetime.now().astimezone().tzinfo),
             )
 
             assert legacy_route.called
@@ -365,8 +362,8 @@ def test_historical_routes_to_current_dataset_only():
 
         with TrafficClient() as client:
             segments: list[TrafficSegment] = client.get_historical_speeds(
-                start=datetime(2025, 1, 1),
-                end=datetime(2025, 1, 2),
+                start=datetime(2025, 1, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                end=datetime(2025, 1, 2, tzinfo=datetime.now().astimezone().tzinfo),
             )
 
             assert not legacy_route.called
@@ -390,8 +387,8 @@ def test_historical_boundary_queries_both_datasets():
 
         with TrafficClient() as client:
             segments: list[TrafficSegment] = client.get_historical_speeds(
-                start=datetime(2024, 1, 1),
-                end=datetime(2024, 12, 1),
+                start=datetime(2024, 1, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                end=datetime(2024, 12, 1, tzinfo=datetime.now().astimezone().tzinfo),
             )
 
             assert legacy_route.called
@@ -408,8 +405,12 @@ def test_historical_where_clause_date_bounds():
 
         with TrafficClient() as client:
             _ = client.get_historical_speeds(
-                start=datetime(2019, 3, 1, 8, 30, 0),
-                end=datetime(2019, 3, 2, 9, 0, 0),
+                start=datetime(
+                    2019, 3, 1, 8, 30, 0, tzinfo=datetime.now().astimezone().tzinfo
+                ),
+                end=datetime(
+                    2019, 3, 2, 9, 0, 0, tzinfo=datetime.now().astimezone().tzinfo
+                ),
             )
 
             request: Request = cast(Request, route.calls[0].request)
@@ -428,8 +429,8 @@ def test_historical_where_clause_segment_ids():
 
         with TrafficClient() as client:
             _ = client.get_historical_speeds(
-                start=datetime(2019, 3, 1),
-                end=datetime(2019, 3, 2),
+                start=datetime(2019, 3, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                end=datetime(2019, 3, 2, tzinfo=datetime.now().astimezone().tzinfo),
                 segment_ids=[101, 202, 303],
             )
 
@@ -445,12 +446,11 @@ def test_historical_warns_on_long_range_without_segment_ids():
             return_value=Response(200, json=[])
         )
 
-        with TrafficClient() as client:
-            with pytest.warns(RuntimeWarning):
-                _ = client.get_historical_speeds(
-                    start=datetime(2019, 1, 1),
-                    end=datetime(2019, 2, 1),
-                )
+        with TrafficClient() as client, pytest.warns(RuntimeWarning):
+            _ = client.get_historical_speeds(
+                start=datetime(2019, 1, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                end=datetime(2019, 2, 1, tzinfo=datetime.now().astimezone().tzinfo),
+            )
 
 
 # Range > 7 days but segment_ids provided doesn't raise a warning
@@ -460,14 +460,13 @@ def test_historical_no_warning_when_segment_ids_provided():
             return_value=Response(200, json=[])
         )
 
-        with TrafficClient() as client:
-            with warnings.catch_warnings():
-                warnings.simplefilter("error", RuntimeWarning)
-                _ = client.get_historical_speeds(
-                    start=datetime(2019, 1, 1),
-                    end=datetime(2019, 2, 1),
-                    segment_ids=[101],
-                )
+        with TrafficClient() as client, warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            _ = client.get_historical_speeds(
+                start=datetime(2019, 1, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                end=datetime(2019, 2, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                segment_ids=[101],
+            )
 
 
 # Range <= 7 days with no segment_ids, no warning
@@ -477,13 +476,12 @@ def test_historical_no_warning_when_range_short():
             return_value=Response(200, json=[])
         )
 
-        with TrafficClient() as client:
-            with warnings.catch_warnings():
-                warnings.simplefilter("error", RuntimeWarning)
-                _ = client.get_historical_speeds(
-                    start=datetime(2019, 1, 1),
-                    end=datetime(2019, 1, 3),
-                )
+        with TrafficClient() as client, warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            _ = client.get_historical_speeds(
+                start=datetime(2019, 1, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                end=datetime(2019, 1, 3, tzinfo=datetime.now().astimezone().tzinfo),
+            )
 
 
 # start >= end raises ValueError before any request is made
@@ -496,19 +494,19 @@ def test_historical_start_after_end_raises_value_error():
         with TrafficClient() as client:
             with pytest.raises(ValueError):
                 _ = client.get_historical_speeds(
-                    start=datetime(2019, 1, 2),
-                    end=datetime(2019, 1, 1),
+                    start=datetime(
+                        2019, 1, 2, tzinfo=datetime.now().astimezone().tzinfo
+                    ),
+                    end=datetime(2019, 1, 1, tzinfo=datetime.now().astimezone().tzinfo),
                 )
 
             assert not route.called
 
 
 def test_historical_start_equal_end_raises_value_error():
-    with respx.mock:
-        with TrafficClient() as client:
-            with pytest.raises(ValueError):
-                same = datetime(2019, 1, 1)
-                _ = client.get_historical_speeds(start=same, end=same)
+    with respx.mock, TrafficClient() as client, pytest.raises(ValueError):
+        same = datetime(2019, 1, 1, tzinfo=datetime.now().astimezone().tzinfo)
+        _ = client.get_historical_speeds(start=same, end=same)
 
 
 # end defaults to "now" when not specified
@@ -519,16 +517,20 @@ def test_historical_end_defaults_to_now():
         )
 
         with TrafficClient() as client:
-            before = datetime.now()
-            _ = client.get_historical_speeds(start=datetime(2026, 1, 1))
-            after = datetime.now()
+            before = datetime.now().astimezone()
+            _ = client.get_historical_speeds(
+                start=datetime(2026, 1, 1, tzinfo=datetime.now().astimezone().tzinfo)
+            )
+            after = datetime.now().astimezone()
 
             request: Request = cast(Request, route.calls[0].request)
             where = request.url.params["$where"]
 
             # extract the end bound and check it falls within [before, after]
             end_str = where.split("<= '")[1].split("'")[0]
-            end_value = datetime.strptime(end_str, "%Y-%m-%dT%H:%M:%S")
+            end_value = datetime.strptime(end_str, "%Y-%m-%dT%H:%M:%S").replace(
+                tzinfo=datetime.now().astimezone().tzinfo
+            )
             assert before.replace(microsecond=0) <= end_value <= after
 
 
@@ -537,12 +539,11 @@ def test_historical_http_error_single_dataset():
     with respx.mock:
         _ = respx.get(HISTORICAL_2018_TO_2023_URL).mock(return_value=Response(500))
 
-        with TrafficClient() as client:
-            with pytest.raises(TrafficAPIError):
-                _ = client.get_historical_speeds(
-                    start=datetime(2019, 1, 1),
-                    end=datetime(2019, 1, 2),
-                )
+        with TrafficClient() as client, pytest.raises(TrafficAPIError):
+            _ = client.get_historical_speeds(
+                start=datetime(2019, 1, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                end=datetime(2019, 1, 2, tzinfo=datetime.now().astimezone().tzinfo),
+            )
 
 
 # HTTP error on the second dataset when straddling throws TrafficAPIError, no partial data
@@ -555,12 +556,11 @@ def test_historical_http_error_second_dataset_no_partial_results():
         )
         _ = respx.get(HISTORICAL_2024_TO_NOW_URL).mock(return_value=Response(500))
 
-        with TrafficClient() as client:
-            with pytest.raises(TrafficAPIError):
-                _ = client.get_historical_speeds(
-                    start=datetime(2024, 1, 1),
-                    end=datetime(2024, 12, 1),
-                )
+        with TrafficClient() as client, pytest.raises(TrafficAPIError):
+            _ = client.get_historical_speeds(
+                start=datetime(2024, 1, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                end=datetime(2024, 12, 1, tzinfo=datetime.now().astimezone().tzinfo),
+            )
 
 
 # HTTP error mid-pagination within a single dataset
@@ -573,13 +573,12 @@ def test_historical_http_error_mid_pagination():
             ]
         )
 
-        with TrafficClient() as client:
-            with pytest.raises(TrafficAPIError):
-                _ = client.get_historical_speeds(
-                    start=datetime(2019, 1, 1),
-                    end=datetime(2019, 6, 1),
-                    segment_ids=[1],
-                )
+        with TrafficClient() as client, pytest.raises(TrafficAPIError):
+            _ = client.get_historical_speeds(
+                start=datetime(2019, 1, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                end=datetime(2019, 6, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                segment_ids=[1],
+            )
 
 
 # Pagination within a single historical dataset
@@ -594,8 +593,8 @@ def test_historical_pagination_within_one_dataset():
 
         with TrafficClient() as client:
             segments: list[TrafficSegment] = client.get_historical_speeds(
-                start=datetime(2019, 1, 1),
-                end=datetime(2019, 6, 1),
+                start=datetime(2019, 1, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                end=datetime(2019, 6, 1, tzinfo=datetime.now().astimezone().tzinfo),
                 segment_ids=[1],
             )
 
@@ -619,8 +618,8 @@ def test_historical_offset_resets_per_dataset():
 
         with TrafficClient() as client:
             _ = client.get_historical_speeds(
-                start=datetime(2024, 1, 1),
-                end=datetime(2024, 12, 1),
+                start=datetime(2024, 1, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                end=datetime(2024, 12, 1, tzinfo=datetime.now().astimezone().tzinfo),
             )
 
             legacy_first = cast(Request, legacy_route.calls[0].request)
@@ -642,8 +641,10 @@ def test_historical_malformed_row_skipped_with_warning():
         with TrafficClient() as client:
             with pytest.warns(RuntimeWarning):
                 segments: list[TrafficSegment] = client.get_historical_speeds(
-                    start=datetime(2019, 1, 1),
-                    end=datetime(2019, 1, 2),
+                    start=datetime(
+                        2019, 1, 1, tzinfo=datetime.now().astimezone().tzinfo
+                    ),
+                    end=datetime(2019, 1, 2, tzinfo=datetime.now().astimezone().tzinfo),
                     segment_ids=[1],
                 )
 
@@ -662,8 +663,8 @@ def test_crashes_single_page():
 
         with TrafficClient() as client:
             crashes: list[CrashRecord] = client.get_crashes(
-                start=datetime(2026, 4, 1),
-                end=datetime(2026, 4, 2),
+                start=datetime(2026, 4, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                end=datetime(2026, 4, 2, tzinfo=datetime.now().astimezone().tzinfo),
             )
 
             assert len(respx.calls) == 1
@@ -684,8 +685,8 @@ def test_crashes_multi_page():
 
         with TrafficClient() as client:
             crashes: list[CrashRecord] = client.get_crashes(
-                start=datetime(2026, 1, 1),
-                end=datetime(2026, 1, 2),
+                start=datetime(2026, 1, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                end=datetime(2026, 1, 2, tzinfo=datetime.now().astimezone().tzinfo),
             )
 
             assert len(respx.calls) == 2
@@ -704,8 +705,8 @@ def test_crashes_exact_multiple():
 
         with TrafficClient() as client:
             crashes: list[CrashRecord] = client.get_crashes(
-                start=datetime(2026, 1, 1),
-                end=datetime(2026, 1, 2),
+                start=datetime(2026, 1, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                end=datetime(2026, 1, 2, tzinfo=datetime.now().astimezone().tzinfo),
             )
 
             assert len(respx.calls) == 2
@@ -719,8 +720,8 @@ def test_crashes_empty_dataset():
 
         with TrafficClient() as client:
             crashes: list[CrashRecord] = client.get_crashes(
-                start=datetime(2026, 1, 1),
-                end=datetime(2026, 1, 2),
+                start=datetime(2026, 1, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                end=datetime(2026, 1, 2, tzinfo=datetime.now().astimezone().tzinfo),
             )
 
             assert len(respx.calls) == 1
@@ -732,12 +733,11 @@ def test_crashes_http_error_first_page():
     with respx.mock:
         _ = respx.get(CRASHES_URL).mock(return_value=Response(500))
 
-        with TrafficClient() as client:
-            with pytest.raises(TrafficAPIError):
-                _ = client.get_crashes(
-                    start=datetime(2026, 1, 1),
-                    end=datetime(2026, 1, 2),
-                )
+        with TrafficClient() as client, pytest.raises(TrafficAPIError):
+            _ = client.get_crashes(
+                start=datetime(2026, 1, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                end=datetime(2026, 1, 2, tzinfo=datetime.now().astimezone().tzinfo),
+            )
 
 
 # HTTP error mid-pagination
@@ -750,12 +750,11 @@ def test_crashes_http_error_mid_pagination():
             ]
         )
 
-        with TrafficClient() as client:
-            with pytest.raises(TrafficAPIError):
-                _ = client.get_crashes(
-                    start=datetime(2026, 1, 1),
-                    end=datetime(2026, 1, 10),
-                )
+        with TrafficClient() as client, pytest.raises(TrafficAPIError):
+            _ = client.get_crashes(
+                start=datetime(2026, 1, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                end=datetime(2026, 1, 10, tzinfo=datetime.now().astimezone().tzinfo),
+            )
 
 
 # Correct $offset/$limit values sent across pages
@@ -770,8 +769,8 @@ def test_crashes_correct_offset():
 
         with TrafficClient() as client:
             _ = client.get_crashes(
-                start=datetime(2026, 1, 1),
-                end=datetime(2026, 1, 10),
+                start=datetime(2026, 1, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                end=datetime(2026, 1, 10, tzinfo=datetime.now().astimezone().tzinfo),
             )
 
             request: Request = cast(Request, respx.calls[0].request)
@@ -790,8 +789,12 @@ def test_crashes_where_clause_date_range():
 
         with TrafficClient() as client:
             _ = client.get_crashes(
-                start=datetime(2026, 3, 1, 8, 30, 0),
-                end=datetime(2026, 3, 2, 9, 0, 0),
+                start=datetime(
+                    2026, 3, 1, 8, 30, 0, tzinfo=datetime.now().astimezone().tzinfo
+                ),
+                end=datetime(
+                    2026, 3, 2, 9, 0, 0, tzinfo=datetime.now().astimezone().tzinfo
+                ),
             )
 
             request: Request = cast(Request, route.calls[0].request)
@@ -805,12 +808,11 @@ def test_crashes_warns_on_long_range():
     with respx.mock:
         _ = respx.get(CRASHES_URL).mock(return_value=Response(200, json=[]))
 
-        with TrafficClient() as client:
-            with pytest.warns(RuntimeWarning):
-                _ = client.get_crashes(
-                    start=datetime(2026, 1, 1),
-                    end=datetime(2026, 2, 1),
-                )
+        with TrafficClient() as client, pytest.warns(RuntimeWarning):
+            _ = client.get_crashes(
+                start=datetime(2026, 1, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                end=datetime(2026, 2, 1, tzinfo=datetime.now().astimezone().tzinfo),
+            )
 
 
 # Range <= 7 days does not warn
@@ -818,13 +820,12 @@ def test_crashes_no_warning_when_range_short():
     with respx.mock:
         _ = respx.get(CRASHES_URL).mock(return_value=Response(200, json=[]))
 
-        with TrafficClient() as client:
-            with warnings.catch_warnings():
-                warnings.simplefilter("error", RuntimeWarning)
-                _ = client.get_crashes(
-                    start=datetime(2026, 1, 1),
-                    end=datetime(2026, 1, 3),
-                )
+        with TrafficClient() as client, warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            _ = client.get_crashes(
+                start=datetime(2026, 1, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                end=datetime(2026, 1, 3, tzinfo=datetime.now().astimezone().tzinfo),
+            )
 
 
 # start >= end raises ValueError before any request is made
@@ -835,19 +836,19 @@ def test_crashes_start_after_end_raises_value_error():
         with TrafficClient() as client:
             with pytest.raises(ValueError):
                 _ = client.get_crashes(
-                    start=datetime(2026, 1, 2),
-                    end=datetime(2026, 1, 1),
+                    start=datetime(
+                        2026, 1, 2, tzinfo=datetime.now().astimezone().tzinfo
+                    ),
+                    end=datetime(2026, 1, 1, tzinfo=datetime.now().astimezone().tzinfo),
                 )
 
             assert not route.called
 
 
 def test_crashes_start_equal_end_raises_value_error():
-    with respx.mock:
-        with TrafficClient() as client:
-            with pytest.raises(ValueError):
-                same = datetime(2026, 1, 1)
-                _ = client.get_crashes(start=same, end=same)
+    with respx.mock, TrafficClient() as client, pytest.raises(ValueError):
+        same = datetime(2026, 1, 1, tzinfo=datetime.now().astimezone().tzinfo)
+        _ = client.get_crashes(start=same, end=same)
 
 
 # end defaults to "now" when not specified
@@ -856,14 +857,18 @@ def test_crashes_end_defaults_to_now():
         route = respx.get(CRASHES_URL).mock(return_value=Response(200, json=[]))
 
         with TrafficClient() as client:
-            before = datetime.now()
-            _ = client.get_crashes(start=datetime(2026, 7, 1))
-            after = datetime.now()
+            before = datetime.now().astimezone()
+            _ = client.get_crashes(
+                start=datetime(2026, 7, 1, tzinfo=datetime.now().astimezone().tzinfo)
+            )
+            after = datetime.now().astimezone()
 
             request: Request = cast(Request, route.calls[0].request)
             where = request.url.params["$where"]
             end_str = where.split("<= '")[1].split("'")[0]
-            end_value = datetime.strptime(end_str, "%Y-%m-%dT%H:%M:%S")
+            end_value = datetime.strptime(end_str, "%Y-%m-%dT%H:%M:%S").replace(
+                tzinfo=datetime.now().astimezone().tzinfo
+            )
             assert before.replace(microsecond=0) <= end_value <= after
 
 
@@ -880,8 +885,10 @@ def test_crashes_malformed_row_skipped_with_warning():
         with TrafficClient() as client:
             with pytest.warns(RuntimeWarning):
                 crashes: list[CrashRecord] = client.get_crashes(
-                    start=datetime(2026, 1, 1),
-                    end=datetime(2026, 1, 2),
+                    start=datetime(
+                        2026, 1, 1, tzinfo=datetime.now().astimezone().tzinfo
+                    ),
+                    end=datetime(2026, 1, 2, tzinfo=datetime.now().astimezone().tzinfo),
                 )
 
             assert len(crashes) == 1
@@ -902,8 +909,10 @@ def test_crashes_injuries_as_float_strings_parsed_correctly():
             with warnings.catch_warnings():
                 warnings.simplefilter("error", RuntimeWarning)
                 crashes: list[CrashRecord] = client.get_crashes(
-                    start=datetime(2026, 1, 1),
-                    end=datetime(2026, 1, 2),
+                    start=datetime(
+                        2026, 1, 1, tzinfo=datetime.now().astimezone().tzinfo
+                    ),
+                    end=datetime(2026, 1, 2, tzinfo=datetime.now().astimezone().tzinfo),
                 )
 
             assert len(crashes) == 1
@@ -920,8 +929,8 @@ def test_crashes_location_present():
 
         with TrafficClient() as client:
             crashes: list[CrashRecord] = client.get_crashes(
-                start=datetime(2026, 1, 1),
-                end=datetime(2026, 1, 2),
+                start=datetime(2026, 1, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                end=datetime(2026, 1, 2, tzinfo=datetime.now().astimezone().tzinfo),
             )
 
             assert crashes[0].location is not None
@@ -940,8 +949,10 @@ def test_crashes_location_absent():
             with warnings.catch_warnings():
                 warnings.simplefilter("error", RuntimeWarning)
                 crashes: list[CrashRecord] = client.get_crashes(
-                    start=datetime(2026, 1, 1),
-                    end=datetime(2026, 1, 2),
+                    start=datetime(
+                        2026, 1, 1, tzinfo=datetime.now().astimezone().tzinfo
+                    ),
+                    end=datetime(2026, 1, 2, tzinfo=datetime.now().astimezone().tzinfo),
                 )
 
             assert len(crashes) == 1
@@ -966,8 +977,10 @@ def test_crashes_optional_severity_fields_absent():
             with warnings.catch_warnings():
                 warnings.simplefilter("error", RuntimeWarning)
                 crashes: list[CrashRecord] = client.get_crashes(
-                    start=datetime(2026, 1, 1),
-                    end=datetime(2026, 1, 2),
+                    start=datetime(
+                        2026, 1, 1, tzinfo=datetime.now().astimezone().tzinfo
+                    ),
+                    end=datetime(2026, 1, 2, tzinfo=datetime.now().astimezone().tzinfo),
                 )
 
             assert crashes[0].crash_type is None
@@ -994,8 +1007,8 @@ def test_crashes_extra_fields_captured():
 
         with TrafficClient() as client:
             crashes: list[CrashRecord] = client.get_crashes(
-                start=datetime(2026, 1, 1),
-                end=datetime(2026, 1, 2),
+                start=datetime(2026, 1, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                end=datetime(2026, 1, 2, tzinfo=datetime.now().astimezone().tzinfo),
             )
 
             assert crashes[0].extra["hit_and_run_i"] == "Y"
@@ -1022,8 +1035,8 @@ def test_crashes_geojson_location_field_excluded_from_extra():
 
         with TrafficClient() as client:
             crashes: list[CrashRecord] = client.get_crashes(
-                start=datetime(2026, 1, 1),
-                end=datetime(2026, 1, 2),
+                start=datetime(2026, 1, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                end=datetime(2026, 1, 2, tzinfo=datetime.now().astimezone().tzinfo),
             )
 
             assert "location" not in crashes[0].extra

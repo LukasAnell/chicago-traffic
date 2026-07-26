@@ -12,6 +12,7 @@ dependencies = [
 venvPath = "."
 venv = ".venv"
 extraPaths = ["src"]
+reportUnknownMemberType = "none"
 
 [tool.uv.sources]
 chicago-traffic = { workspace = true }
