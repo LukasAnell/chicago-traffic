@@ -147,7 +147,7 @@ class TrafficClient:
 
         try:
             return convert(value)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             raise TrafficAPIError(
                 f"Failed to convert field '{key}' to the correct type", cause=e
             )
