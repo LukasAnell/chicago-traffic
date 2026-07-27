@@ -64,6 +64,9 @@ class TrafficClient:
         if end is None:
             end = datetime.now().astimezone()
 
+        if start.tzinfo is None:
+            start = start.astimezone()
+
         if start >= end:
             raise ValueError("Start datetime must be before end datetime")
 
@@ -98,6 +101,9 @@ class TrafficClient:
     ) -> list[TrafficSegment]:
         if end is None:
             end = datetime.now().astimezone()
+
+        if start.tzinfo is None:
+            start = start.astimezone()
 
         if start >= end:
             raise ValueError("Start datetime must be before end datetime")
