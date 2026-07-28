@@ -2,8 +2,11 @@ import warnings
 from collections.abc import Callable
 from datetime import datetime
 from types import TracebackType
+from zoneinfo import ZoneInfo
 
 from httpx import Client
+
+_CHICAGO_TZ = ZoneInfo("America/Chicago")
 
 from chicago_traffic.models import (
     CrashInjuries,
@@ -25,9 +28,7 @@ class TrafficClient:
     __CRASHES_DATASET: str = "/85ca-t3if.json"
 
     # end date of 2018-2023, start date of 2024-now
-    __HISTORICAL_BOUNDARY = datetime(
-        2024, 6, 11, tzinfo=datetime.now().astimezone().tzinfo
-    )
+    __HISTORICAL_BOUNDARY = datetime(2024, 6, 11, tzinfo=_CHICAGO_TZ)
 
     # Socrata's max page size for requests
     __PAGE_SIZE: int = 1_000
@@ -64,9 +65,6 @@ class TrafficClient:
         if end is None:
             end = datetime.now().astimezone()
 
-        if start.tzinfo is None:
-            start = start.astimezone()
-
         if start >= end:
             raise ValueError("Start datetime must be before end datetime")
 
@@ -101,9 +99,6 @@ class TrafficClient:
     ) -> list[TrafficSegment]:
         if end is None:
             end = datetime.now().astimezone()
-
-        if start.tzinfo is None:
-            start = start.astimezone()
 
         if start >= end:
             raise ValueError("Start datetime must be before end datetime")
@@ -176,7 +171,7 @@ class TrafficClient:
             item,
             "_last_updt",
             lambda s: datetime.strptime(s, "%Y-%m-%d %H:%M:%S.%f").replace(
-                tzinfo=datetime.now().astimezone().tzinfo
+                tzinfo=_CHICAGO_TZ
             ),
         )
 
@@ -215,7 +210,7 @@ class TrafficClient:
             item,
             "time",
             lambda s: datetime.strptime(s, "%Y-%m-%dT%H:%M:%S.%f").replace(
-                tzinfo=datetime.now().astimezone().tzinfo
+                tzinfo=_CHICAGO_TZ
             ),
         )
 
@@ -242,14 +237,14 @@ class TrafficClient:
             item,
             "crash_date",
             lambda s: datetime.strptime(s, "%Y-%m-%dT%H:%M:%S.%f").replace(
-                tzinfo=datetime.now().astimezone().tzinfo
+                tzinfo=_CHICAGO_TZ
             ),
         )
         date_police_notified: datetime = self._get_required(
             item,
             "date_police_notified",
             lambda s: datetime.strptime(s, "%Y-%m-%dT%H:%M:%S.%f").replace(
-                tzinfo=datetime.now().astimezone().tzinfo
+                tzinfo=_CHICAGO_TZ
             ),
         )
         posted_speed_limit: int = self._get_required(item, "posted_speed_limit", int)
