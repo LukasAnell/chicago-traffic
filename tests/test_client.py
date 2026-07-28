@@ -1,6 +1,7 @@
 import warnings
 from datetime import datetime
 from typing import cast
+from zoneinfo import ZoneInfo
 
 import pytest
 import respx
@@ -1040,3 +1041,65 @@ def test_crashes_geojson_location_field_excluded_from_extra():
             )
 
             assert "location" not in crashes[0].extra
+
+
+# Live segment timestamps use a fixed America/Chicago tzinfo
+def test_live_segment_last_updated_uses_fixed_chicago_timezone():
+    with respx.mock:
+        _ = respx.get("https://data.cityofchicago.org/resource/n4j6-wkkf.json").mock(
+            return_value=Response(200, json=[make_segment()])
+        )
+
+        with TrafficClient() as client:
+            segments: list[TrafficSegment] = client.get_live_speeds()
+
+            assert segments[0].last_updated.tzinfo == ZoneInfo("America/Chicago")
+
+
+# Historical segment timestamps use a fixed America/Chicago tzinfo
+def test_historical_segment_last_updated_uses_fixed_chicago_timezone():
+    with respx.mock:
+        _ = respx.get(HISTORICAL_2018_TO_2023_URL).mock(
+            return_value=Response(200, json=[make_historical_segment()])
+        )
+
+        with TrafficClient() as client:
+            segments: list[TrafficSegment] = client.get_historical_speeds(
+                start=datetime(2019, 1, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                end=datetime(2019, 1, 2, tzinfo=datetime.now().astimezone().tzinfo),
+            )
+
+            assert segments[0].last_updated.tzinfo == ZoneInfo("America/Chicago")
+
+
+# Crash record timestamps (crash_date and date_police_notified) use a fixed America/Chicago tzinfo
+def test_crash_dates_use_fixed_chicago_timezone():
+    with respx.mock:
+        _ = respx.get(CRASHES_URL).mock(
+            return_value=Response(200, json=[make_crash_record()])
+        )
+
+        with TrafficClient() as client:
+            crashes: list[CrashRecord] = client.get_crashes(
+                start=datetime(2026, 1, 1, tzinfo=datetime.now().astimezone().tzinfo),
+                end=datetime(2026, 1, 2, tzinfo=datetime.now().astimezone().tzinfo),
+            )
+
+            assert crashes[0].crash_date.tzinfo == ZoneInfo("America/Chicago")
+            assert crashes[0].date_police_notified.tzinfo == ZoneInfo("America/Chicago")
+
+
+# __HISTORICAL_BOUNDARY must be pinned to a fixed America/Chicago zone
+def test_boundary_routing_unaffected_by_host_timezone():
+    with respx.mock:
+        route = respx.get(HISTORICAL_2024_TO_NOW_URL).mock(
+            return_value=Response(200, json=[])
+        )
+
+        with TrafficClient() as client:
+            _ = client.get_historical_speeds(
+                start=datetime(2024, 6, 12, tzinfo=ZoneInfo("America/Chicago")),
+                end=datetime(2024, 6, 13, tzinfo=ZoneInfo("America/Chicago")),
+            )
+
+            assert route.called
