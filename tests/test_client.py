@@ -1090,7 +1090,16 @@ def test_crash_dates_use_fixed_chicago_timezone():
 
 
 # __HISTORICAL_BOUNDARY must be pinned to a fixed America/Chicago zone
-def test_historical_boundary_uses_fixed_chicago_timezone():
-    boundary: datetime = getattr(TrafficClient, "_TrafficClient__HISTORICAL_BOUNDARY")
+def test_boundary_routing_unaffected_by_host_timezone():
+    with respx.mock:
+        route = respx.get(HISTORICAL_2024_TO_NOW_URL).mock(
+            return_value=Response(200, json=[])
+        )
 
-    assert boundary.tzinfo == ZoneInfo("America/Chicago")
+        with TrafficClient() as client:
+            _ = client.get_historical_speeds(
+                start=datetime(2024, 6, 12, tzinfo=ZoneInfo("America/Chicago")),
+                end=datetime(2024, 6, 13, tzinfo=ZoneInfo("America/Chicago")),
+            )
+
+            assert route.called
